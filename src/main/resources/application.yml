@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: ragbot
+
+  # --- DB (PostgreSQL + pgvector) ---
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:127.0.0.1}:${DB_PORT:5432}/${DB_NAME:postgres}}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:changeme}
+
+  # --- Spring AI ---
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}            # 환경변수만 (Moderation도 재사용)
+      chat:
+        options:
+          model: ${app.openai.chat-model}
+      embedding:
+        options:
+          model: ${app.openai.embedding-model}
+    # 재시도는 Resilience4j로 통합 예정(M4) → 내장 재시도 비활성(이중 재시도 방지)
+    retry:
+      max-attempts: 1
+    vectorstore:
+      pgvector:
+        initialize-schema: false          # 테이블은 db/init/01-schema.sql이 생성. 앱은 만들지 않음
+        schema-name: public
+        table-name: documents
+        index-type: hnsw
+        distance-type: COSINE_DISTANCE
+        dimensions: ${app.openai.embedding-dim}
+
+# --- 애플리케이션 튜닝값 (단일 소스, @ConfigurationProperties로 매핑 예정) ---
+app:
+  llm:
+    provider: openai
+  openai:
+    chat-model: gpt-4o
+    embedding-model: text-embedding-3-small  # 1536, 색인과 동일 고정
+    embedding-dim: 1536
+  retrieval:
+    top-k: 5
+    # min-score:                              # 2차 튜닝
+    table: documents                          # 읽기 전용 (색인 적재는 별도)
+    source-keys:
+      title: title
+      page: page
+  cache:
+    enabled: true
+    cosine-threshold: 0.95
+    # table:                                  # 서버팀 소유 — 확정 시 기입
+  guard:
+    max-question-len: 1000
+    rate-per-min: 20
+    moderation:
+      enabled: true
+      model: omni-moderation-latest
+    banned-words-path: classpath:banned-words.txt
+  slack:
+    mode: socket                              # | events
+
+# --- 회복탄력성 (M4에서 Resilience4j 의존성 활성화 후 사용) ---
+# resilience4j:
+#   retry: { ... }
+#   circuitbreaker: { ... }
+#   timelimiter: { ... }
+#   ratelimiter: { ... }
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.okestro.ragbot: INFO

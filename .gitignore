@@ -13,6 +13,9 @@ build/
 *.iml
 .vscode/
 
+# --- OMC (plugin cache) ---
+.omc/
+
 # --- OS ---
 .DS_Store
 

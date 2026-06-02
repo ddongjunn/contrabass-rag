@@ -1,0 +1,4 @@
+# 콘텐츠 가드레일 — 로컬 금칙어 사전 (한 줄에 하나).
+# InputGuard(guard 모듈)가 임베딩·생성 전에 1차 차단에 사용한다.
+# 애매한 입력은 OpenAI Moderation API로 2차 판별(app.guard.moderation.enabled).
+# 실제 운영 금칙어는 보안/운영 정책에 맞춰 채운다. (예시는 비워 둠)
