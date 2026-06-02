@@ -6,9 +6,10 @@ WORKDIR /app
 # 의존성 캐시 레이어 (소스보다 먼저 빌드 스크립트만 복사)
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon > /dev/null 2>&1 || true
+# 베이스 이미지(gradle:8-jdk21)에 설치된 gradle 사용 — 래퍼의 services.gradle.org 다운로드 회피(제한된 egress 환경)
+RUN gradle dependencies --no-daemon > /dev/null 2>&1 || true
 COPY src ./src
-RUN ./gradlew bootJar --no-daemon
+RUN gradle bootJar --no-daemon
 
 # --- runtime stage: JRE 21 + jar ---
 FROM eclipse-temurin:21-jre AS runtime
