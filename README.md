@@ -78,6 +78,15 @@ common/        config · Resilience4j
 ./gradlew test           # 테스트
 ```
 
+VM 배포(앱+pgvector 컨테이너):
+
+```bash
+./deploy.sh              # git pull → 빌드 + 기동(up -d --build) 후 헬스 대기  ← 기본
+./deploy.sh up           # pull 없이 빌드 + 기동
+./deploy.sh down|logs|ps|restart
+./deploy.sh <그 외>      # 정의되지 않은 인자는 docker compose 로 그대로 전달 (예: exec app sh)
+```
+
 - 시크릿은 환경변수로 주입: `OPENAI_API_KEY`(Moderation 재사용), `SLACK_BOT_TOKEN`,
   `SLACK_APP_TOKEN`, DB 접속정보 (`.env.example` 참고)
 - 튜닝 값(모델·top-k·임계값·테이블명·회복탄력성)은 `application.yml` 한 곳에서 관리
