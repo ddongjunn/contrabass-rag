@@ -49,7 +49,7 @@ sequenceDiagram
 - 데이터 접근: **JdbcTemplate** (JPA 미사용)
 - 회복탄력성: **Resilience4j 통합** (Retry·CircuitBreaker·TimeLimiter·RateLimiter)
 - PostgreSQL + **pgvector** (cosine / HNSW)
-- Slack Bolt (Socket Mode 우선)
+- Slack Bolt (Socket Mode 고정)
 
 ## 프로젝트 구조
 

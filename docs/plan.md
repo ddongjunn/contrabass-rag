@@ -21,8 +21,8 @@
 | `app.retrieval.table` | documents 테이블명 | `documents` | **읽기 전용**(색인 적재는 별도) |
 | `app.cache.enabled` / `.cosine-threshold` | 캐시 on·off / 히트 기준 | `true` / `0.95` | 2차 튜닝 |
 | `app.cache.table` | 캐시/질의로그 테이블명 | `(이 앱 확정)` | **이 앱 소유**(DDL·조회/저장) |
-| `app.slack.mode` | socket/events | `socket` | |
-| `app.guard.max-question-len` / `.rate-per-min` | 입력 길이 / 분당 한도 | `1000` / `20` | RateLimiter |
+| `app.slack.mode` | 연결 방식 | `socket` | **1차 고정**(공개 URL·서명검증 불필요) |
+| `app.guard.max-question-len` / `.rate-per-min` | 입력 길이 / **사용자별** 분당 한도 | `1000` / `5` | RateLimiter(`user_id` 키) |
 | `app.guard.moderation.enabled` / `.model` | Moderation | `true` / `omni-moderation-latest` | 무료 |
 | `app.guard.banned-words-path` | 로컬 금칙어 사전 | `classpath:banned-words.txt` | 1차 차단 |
 | `spring.ai.retry.max-attempts` | 내장 재시도 | `1` | **비활성**(이중 재시도 방지) |
@@ -101,7 +101,8 @@
 ## Phase 5 — M4: 요청/응답 처리 + 회복탄력성
 
 - [ ] `build.gradle.kts`에서 `resilience4j-spring-boot3` 활성화.
-- [ ] `guard`: `InputValidation`(빈입력·길이), 레이트리밋(`rate-per-min`, Resilience4j `RateLimiter`).
+- [ ] `guard`: `InputValidation`(빈입력·길이), **사용자별** 레이트리밋(`rate-per-min` 템플릿,
+      `RateLimiterRegistry`를 Slack `user_id`로 키잉 — 전역 단일 인스턴스 금지).
 - [ ] **콘텐츠 필터**: `ContentPolicy`(로컬 금칙어) → 애매하면 `ModerationService`
       (`OpenAiModerationClient`). 차단 시 임베딩·생성 **0회**, 안내.
 - [ ] **회복탄력성(Resilience4j 통합)**: OpenAI 임베딩·생성·모더레이션에 `Retry`+`CircuitBreaker`+
@@ -117,11 +118,11 @@
 
 - [ ] `build.gradle.kts`에서 `bolt`·`bolt-socket-mode` 활성화.
 - [ ] `slack.interfaces.SocketModeRunner`(수신 → **즉시 ack** → 비동기 위임).
+- [ ] **봇/자기 메시지 무시**(`bot_id` 존재 시 드롭) — 봇 답변 재유입에 의한 무한 루프·비용 폭주 차단.
 - [ ] 비동기 실행(가상스레드/`@Async`) → `chat.application.ChatService` 호출.
 - [ ] `slack`: `SlackResponseService` + `SlackResponder`(완료 시 원 스레드 `chat.postMessage`).
-- [ ] (옵션) `SlackEventHandler` — `app.slack.mode=events` 대비.
 
-**DoD:** 테스트 워크스페이스 멘션 → 스레드 답변+출처, 3초 내 ack.
+**DoD:** 테스트 워크스페이스 멘션 → 스레드 답변+출처, 3초 내 ack. 봇 답변이 재유입돼도 루프 안 됨(`bot_id` 드롭 확인).
 
 ---
 

@@ -51,13 +51,13 @@ app:
     # table:                                  # 서버팀 소유 — 확정 시 기입
   guard:
     max-question-len: 1000
-    rate-per-min: 20
+    rate-per-min: 5                           # 사용자(Slack user_id)별 분당 한도 — RateLimiterRegistry 키별 적용(M5)
     moderation:
       enabled: true
       model: omni-moderation-latest
     banned-words-path: classpath:banned-words.txt
   slack:
-    mode: socket                              # | events
+    mode: socket                              # 1차 고정(아웃바운드 WebSocket, 공개 URL·서명검증 불필요)
 
 # --- 회복탄력성 (M4에서 Resilience4j 의존성 활성화 후 사용) ---
 # resilience4j:
