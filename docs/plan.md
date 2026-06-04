@@ -134,14 +134,31 @@
 
 ## Phase 5 — M4: 요청/응답 처리 + 회복탄력성
 
+> **서브분할**(process.md, 2026-06-04 결정): 새 파일 6+ · 새 외부 I/O(Moderation) · 새 의존성(resilience4j)
+> 동시 도입 → **5-a/5-b/5-c**로 분할. 각 서브는 자체 빌드·검수 가능 최소 단위.
+
+### Phase 5-a — 입력·콘텐츠 가드 (로컬, 외부 I/O 0) ✅
+- [x] `guard/domain`: `InputValidation`(빈입력·`max-question-len` 초과), `ContentPolicy`(로컬 금칙어,
+      `banned-words-path` 로드·대소문자 무시 부분일치), `GuardDecision`(Allowed/Blocked(reason·message)).
+- [x] `guard/application`: `InputGuard`(인터페이스) + `DefaultInputGuard`(입력검증 → 금칙어 순 1차 차단).
+- [x] `chat.application.DefaultChatService` 앞단에 가드 삽입 — 차단 시 임베딩·생성 **0회**(불변식 4), 안내 응답.
+
+**DoD(5-a):** 빌드/단위테스트 그린 ✅(총 21건). 빈입력·과길이·금칙어 → 임베딩/생성 0회 정적 검증.
+(런타임 차단 시연·LLM 0회 실측은 사용자 검수.)
+
+### Phase 5-b — Moderation 2차 필터 (OpenAI)
+- [ ] `guard/application/ModerationService`(인터페이스) + `guard/infrastructure/OpenAiModerationClient`
+      (Spring AI ModerationModel, `app.guard.moderation.*`). 금칙어 통과분 중 애매한 입력 2차 판별.
+- [ ] `DefaultInputGuard` 체인 끝에 Moderation 연결(`enabled=false` 시 건너뜀). 차단 시 임베딩·생성 **0회**.
+
+**DoD(5-b):** 유해 입력 Moderation 차단 시 LLM 0회. (실 API 호출은 사용자 검수.)
+
+### Phase 5-c — 레이트리밋 + 회복탄력성 (Resilience4j 통합)
 - [ ] `build.gradle.kts`에서 `resilience4j-spring-boot3` 활성화.
-- [ ] `guard`: `InputValidation`(빈입력·길이), **사용자별** 레이트리밋(`rate-per-min` 템플릿,
-      `RateLimiterRegistry`를 Slack `user_id`로 키잉 — 전역 단일 인스턴스 금지).
-- [ ] **콘텐츠 필터**: `ContentPolicy`(로컬 금칙어) → 애매하면 `ModerationService`
-      (`OpenAiModerationClient`). 차단 시 임베딩·생성 **0회**, 안내.
-- [ ] **회복탄력성(Resilience4j 통합)**: OpenAI 임베딩·생성·모더레이션에 `Retry`+`CircuitBreaker`+
-      `TimeLimiter`. 내장 재시도 비활성(`spring.ai.retry.max-attempts=1`).
-- [ ] 응답: 검색 0건/`min-score` 미달 → "관련 문서 없음"(LLM 0회). 출처 포맷 통일(Slack/REST 공통).
+- [ ] **사용자별** 레이트리밋(`rate-per-min` 템플릿, `RateLimiterRegistry`를 Slack `user_id`로 키잉 — 전역 단일 인스턴스 금지).
+- [ ] **회복탄력성**: OpenAI 임베딩·생성·모더레이션에 `Retry`+`CircuitBreaker`+`TimeLimiter`.
+      내장 재시도 비활성(`spring.ai.retry.max-attempts=1`, 이미 적용).
+- [ ] 응답: 검색 0건/`min-score` 미달 → "관련 문서 없음"(LLM 0회, 이미 적용). 출처 포맷 통일(Slack/REST 공통).
 
 **DoD:** 잡담/과도요청/욕설 차단, 무관 질문 "문서 없음", 정상 질문 출처 포함 — 케이스별 LLM
 호출수 검증. OpenAI 장애 모사 시 CircuitBreaker·타임아웃 동작 확인.

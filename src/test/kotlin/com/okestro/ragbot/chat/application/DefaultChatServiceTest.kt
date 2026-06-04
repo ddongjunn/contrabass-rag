@@ -3,14 +3,23 @@ package com.okestro.ragbot.chat.application
 import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.embedding.application.EmbeddingService
 import com.okestro.ragbot.generation.application.AnswerGenerationService
+import com.okestro.ragbot.guard.application.InputGuard
+import com.okestro.ragbot.guard.domain.GuardDecision
 import com.okestro.ragbot.retrieval.application.DocumentSearchService
 import com.okestro.ragbot.retrieval.domain.RetrievalPolicy
 import com.okestro.ragbot.retrieval.domain.RetrievedChunk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-/** Phase 3: 임베딩 1회 → 검색 → 생성 → top-k 출처 배선, 검색 0건 시 생성 0회(불변식 3). 페이크로만. */
+/**
+ * Phase 3·5-a: 입력 가드 → 임베딩 1회 → 검색 → 생성 → top-k 출처 배선.
+ * 가드 차단·검색 0건 시 임베딩/생성 0회(불변식 3·4). 페이크로만.
+ */
 class DefaultChatServiceTest {
+    private class FakeGuard(private val decision: GuardDecision) : InputGuard {
+        override fun inspect(question: String): GuardDecision = decision
+    }
+
     private class FakeEmbedding(private val vector: FloatArray) : EmbeddingService {
         var calls = 0
         override fun embed(text: String): FloatArray { calls++; return vector }
@@ -45,7 +54,9 @@ class DefaultChatServiceTest {
         )
         val search = FakeSearch(chunks)
         val generation = FakeGeneration("근거 기반 답변")
-        val service = DefaultChatService(embedding, search, RetrievalPolicy(props), generation, props)
+        val service = DefaultChatService(
+            FakeGuard(GuardDecision.Allowed), embedding, search, RetrievalPolicy(props), generation, props,
+        )
 
         val result = service.handle(ChatCommand(question = "질문", userId = "u1"))
 
@@ -63,13 +74,31 @@ class DefaultChatServiceTest {
     fun `empty retrieval skips generation and returns not-found (불변식 3)`() {
         val generation = FakeGeneration("호출되면 안 됨")
         val service = DefaultChatService(
-            FakeEmbedding(FloatArray(1536)), FakeSearch(emptyList()), RetrievalPolicy(props), generation, props,
+            FakeGuard(GuardDecision.Allowed), FakeEmbedding(FloatArray(1536)), FakeSearch(emptyList()),
+            RetrievalPolicy(props), generation, props,
         )
 
         val result = service.handle(ChatCommand(question = "질문", userId = "u1"))
 
         assertThat(generation.calls).isEqualTo(0)             // 생성 0회
         assertThat(result.answer).isEqualTo("관련 문서를 찾지 못했습니다.")
+        assertThat(result.sources).isEmpty()
+    }
+
+    @Test
+    fun `blocked input short-circuits before embedding and generation (불변식 4)`() {
+        val embedding = FakeEmbedding(FloatArray(1536))
+        val generation = FakeGeneration("호출되면 안 됨")
+        val service = DefaultChatService(
+            FakeGuard(GuardDecision.Blocked("banned-word", "부적절한 표현이 포함되어 답변할 수 없습니다.")),
+            embedding, FakeSearch(emptyList()), RetrievalPolicy(props), generation, props,
+        )
+
+        val result = service.handle(ChatCommand(question = "나쁜말", userId = "u1"))
+
+        assertThat(embedding.calls).isEqualTo(0)              // 임베딩 0회
+        assertThat(generation.calls).isEqualTo(0)             // 생성 0회
+        assertThat(result.answer).isEqualTo("부적절한 표현이 포함되어 답변할 수 없습니다.")
         assertThat(result.sources).isEmpty()
     }
 }
