@@ -7,6 +7,7 @@ import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.socket_mode.SocketModeApp
 import com.slack.api.model.event.AppMentionEvent
+import com.slack.api.model.event.MessageEvent
 import com.slack.api.socket_mode.SocketModeClient
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
@@ -18,9 +19,10 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Slack Socket Mode 수신기: `app_mention` 수신 → 즉시 ack(3초 제약) → 봇 메시지(`bot_id`) 드롭(루프 차단) →
- * 가상스레드에서 비동기로 [ChatService] 실행 후 원 스레드에 답변+출처 게시([SlackResponseService]).
- * 토큰은 환경변수만(SLACK_BOT_TOKEN/SLACK_APP_TOKEN). 미설정 시 Slack 비활성(REST `/api/chat`는 그대로 동작).
+ * Slack Socket Mode 수신기: 채널 `app_mention` + DM(`message`, channel_type=im) 수신 → 즉시 ack(3초 제약) →
+ * 봇 메시지(`bot_id`) 드롭(루프 차단) → 가상스레드에서 비동기로 [ChatService] 실행 후 답변+출처 게시([SlackResponseService]).
+ * 채널 일반 메시지(멘션 아님)는 무시(비용/노이즈 방지 — 채널은 @멘션으로). 토큰은 환경변수만
+ * (SLACK_BOT_TOKEN/SLACK_APP_TOKEN), 미설정 시 Slack 비활성(REST `/api/chat`는 그대로 동작).
  */
 @Component
 class SocketModeRunner(
@@ -53,6 +55,16 @@ class SocketModeRunner(
             val threadTs = event.threadTs ?: event.ts        // 멘션이 최상위면 그 ts로 스레드 시작
             log.info("slack app_mention user={} channel={} len={}", userId, channel, question.length)
             executor.submit { handle(question, userId, channel, threadTs) }  // ack는 즉시, RAG는 비동기
+            ctx.ack()
+        }
+        app.event(MessageEvent::class.java) { payload, ctx ->
+            val event = payload.event
+            if (event.botId != null) return@event ctx.ack()           // 봇/자기 메시지 드롭(루프 차단)
+            if (event.channelType != "im") return@event ctx.ack()     // 채널 일반 메시지 무시(채널은 @멘션)
+            val question = event.text.orEmpty().replace(mentionRegex, "").trim()
+            val userId = event.user ?: "unknown"
+            log.info("slack dm user={} channel={} len={}", userId, event.channel, question.length)
+            executor.submit { handle(question, userId, event.channel, event.threadTs ?: event.ts) }
             ctx.ack()
         }
         runCatching { SocketModeApp(appToken, app, SocketModeClient.Backend.JavaWebSocket).also { it.startAsync() } }
