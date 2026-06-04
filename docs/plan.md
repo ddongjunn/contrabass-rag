@@ -20,7 +20,7 @@
 | `app.openai.embedding-model` | 임베딩 모델 | `text-embedding-3-small` | **1536, 색인과 동일**. OpenAI API |
 | `app.openai.embedding-dim` | 임베딩 차원 | `1536` | documents/캐시 공통 |
 | `app.retrieval.top-k` | 검색 청크 수 | `5` | 2차 튜닝 |
-| `app.retrieval.min-score` | 유사도 하한 | `(미정)` | 0건/저유사 차단, 2차 |
+| `app.retrieval.min-score` | 유사도 하한 | `0.32` | 실측(정상≥0.376/무관≤0.263) 사이값. 저유사 0건 차단 |
 | `app.retrieval.table` | documents 테이블명 | `documents` | **읽기 전용**(색인 적재는 별도) |
 | `app.cache.enabled` / `.cosine-threshold` | 캐시 on·off / 히트 기준 | `true` / `0.95` | **고도화 보류**(Phase 4) |
 | `app.cache.table` | 캐시/질의로그 테이블명 | `(이 앱 확정)` | **이 앱 소유** — 구현 고도화 보류 |
@@ -156,12 +156,26 @@
 **DoD(5-b):** 빌드/단위테스트 그린 ✅(총 25건, OpenAiModerationClient flagged→Blocked 매핑·체인 단락 검증).
 유해 입력 Moderation 차단 시 LLM 0회는 사용자 런타임 검수(실 API 호출).
 
-### Phase 5-c — 레이트리밋 + 회복탄력성 (Resilience4j 통합)
+> **서브분할**(2026-06-04 결정): 새 의존성(resilience4j) + 인바운드 레이트리밋 + 아웃바운드 회복탄력성 +
+> 튜닝(min-score)이 섞여 큼 → **5-c-1/5-c-2**로 분할. min-score는 무관 질문 가짜 출처(런타임 관찰) 즉시
+> 해결책이라 먼저 뺀다.
+
+### Phase 5-c-1 — min-score (검색 품질 가드) ✅
+> 기제는 2-b에 이미 있음(`RetrievalPolicy.minScore` 필터, 0건 → "관련 문서 없음"·LLM 0회).
+> 남은 일 = 실측용 score 로깅 + 임계값 설정.
+- [x] `DefaultChatService`에 검색 raw score 로깅(정상/무관 질문 점수 분포 실측용).
+- [x] 실측(정상 [0.512..0.376] / 무관 [0.263..0.242]) 후 `app.retrieval.min-score = 0.32` 설정 →
+      무관 질문 → 5청크 전부 필터 → "관련 문서 없음"·출처0·**LLM 0회**.
+
+**DoD(5-c-1):** 무관 질문 → 출처 0·LLM 0회(로그 검증). 정상 질문은 임계값 통과해 답변+출처 유지.
+(빌드/테스트 25건 그린. 런타임 무관 질문 LLM 0회 시연은 사용자 검수.)
+
+### Phase 5-c-2 — 레이트리밋 + 회복탄력성 (Resilience4j 통합)
 - [ ] `build.gradle.kts`에서 `resilience4j-spring-boot3` 활성화.
 - [ ] **사용자별** 레이트리밋(`rate-per-min` 템플릿, `RateLimiterRegistry`를 Slack `user_id`로 키잉 — 전역 단일 인스턴스 금지).
-- [ ] **회복탄력성**: OpenAI 임베딩·생성·모더레이션에 `Retry`+`CircuitBreaker`+`TimeLimiter`.
-      내장 재시도 비활성(`spring.ai.retry.max-attempts=1`, 이미 적용).
-- [ ] 응답: 검색 0건/`min-score` 미달 → "관련 문서 없음"(LLM 0회, 이미 적용). 출처 포맷 통일(Slack/REST 공통).
+- [ ] **회복탄력성**: OpenAI 임베딩·생성·모더레이션에 `Retry`+`CircuitBreaker`(+`TimeLimiter` — 동기 호출이라
+      executor 데코레이션 vs HTTP read-timeout 중 착수 시 결정). 내장 재시도 비활성(`spring.ai.retry.max-attempts=1`, 이미 적용).
+- [ ] 출처 포맷 통일(Slack/REST 공통).
 
 **DoD:** 잡담/과도요청/욕설 차단, 무관 질문 "문서 없음", 정상 질문 출처 포함 — 케이스별 LLM
 호출수 검증. OpenAI 장애 모사 시 CircuitBreaker·타임아웃 동작 확인.

@@ -44,7 +44,7 @@ app:
     embedding-dim: 1536
   retrieval:
     top-k: 5
-    # min-score:                              # 2차 튜닝
+    min-score: 0.32                           # 실측(2026-06-04): 정상 ≥0.376 / 무관 ≤0.263 사이값
     table: documents                          # 읽기 전용 (색인 적재는 별도)
     source-keys:
       title: title

@@ -35,7 +35,12 @@ class DefaultChatService(
             return ChatResult(answer = decision.message, sources = emptyList())
         }
         val queryVector = embeddingService.embed(command.question)
-        val chunks = retrievalPolicy.apply(documentSearch.search(queryVector, props.retrieval.topK))
+        val retrieved = documentSearch.search(queryVector, props.retrieval.topK)
+        log.info(
+            "retrieval userId={} scores={} minScore={}",
+            command.userId, retrieved.map { "%.3f".format(it.score) }, props.retrieval.minScore,
+        )
+        val chunks = retrievalPolicy.apply(retrieved)
         if (chunks.isEmpty()) {
             log.info("chat no-doc userId={} embeddingCalls=1 llmCalls=0", command.userId)
             return ChatResult(answer = "관련 문서를 찾지 못했습니다.", sources = emptyList())
