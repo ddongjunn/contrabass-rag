@@ -66,17 +66,27 @@
 
 ## Phase 2 — M1: 임베딩 + 문서 검색
 
-- [ ] `common.config`: `OpenAiEmbeddingModel`·`PgVectorStore` 빈(값은 `AppProperties`).
-- [ ] `embedding`: `EmbeddingService` + `OpenAiEmbeddingClient` — 질문 1회 임베딩→`FloatArray`.
-- [ ] `retrieval`: `DocumentSearchService` + `PgVectorDocumentSearch`(`topK`·`min-score`,
-      `metadata` title/page 출처), `RetrievalPolicy`(0건·저유사 차단).
-- [x] ~~DB 우회(스텁/임시 시드)~~ — **불필요**. `contrabass_rag.documents` 159행 실데이터로 바로 검증.
-      인터페이스는 그대로 고정. (스텁 경로 만들지 않음 — 범위 축소)
-- [ ] **출처 표기**: `title` + `chunk_index`(항상 표기 — 개발자가 근거 청크를 DB에서 찾아 검증).
-      `page`는 non-null일 때만 추가(현재 docx라 전부 null, 코드가 null 허용). `doc_id`·`source`는 1차 미사용.
-      예: `contrabass-v3.0.5.docx #156`. 출처 키는 `app.retrieval.source-keys`로 외부화.
+> **서브분할**(process.md): 외부 I/O 2종(OpenAI 임베딩 + pgvector 검색) 동시 도입 → 안전하게 2-a/2-b로.
+> 각 서브 Phase는 자체 빌드·검수 가능 단위. DB 우회(스텁/시드)는 **불필요** — `contrabass_rag.documents`
+> 159행 실데이터로 검증(인터페이스는 그대로 고정, 스텁 경로 안 만듦 — 범위 축소).
 
-**DoD:** `/api/chat`(생성 제외) → 실 documents 기준 top-k 청크 + 출처(`title #chunk_index`, page는 있을 때).
+### Phase 2-a — 임베딩 (질문 1회 임베딩)
+- [ ] `embedding/application/EmbeddingService`(인터페이스) + `embedding/infrastructure/OpenAiEmbeddingClient`
+      — Spring AI 자동구성 `EmbeddingModel`(yml의 `text-embedding-3-small`/1536) 주입, `embed(text)->FloatArray`.
+- [ ] 단위 테스트: `EmbeddingModel` 목으로 1회 호출 위임·결과 전달 검증(외부 호출 없음).
+
+**DoD(2-a):** 빌드/단위테스트 그린. (런타임=사용자) 실 OpenAI 호출 시 1536차원 벡터 1회 산출.
+
+### Phase 2-b — 문서 검색 + 파이프라인 연결
+- [ ] `common.config`: `PgVectorStore` 빈(또는 자동구성 활용) — `AppProperties`/yml 값 기준.
+- [ ] `retrieval/application/DocumentSearchService`(인터페이스) + `retrieval/infrastructure/PgVectorDocumentSearch`
+      (`topK`, `min-score` 미설정 시 0건만 차단), `retrieval/domain/RetrievalPolicy`(0건·저유사 차단),
+      `RetrievedChunk`/`Source` 도메인.
+- [ ] **출처 표기**: `title #chunk_index`(항상 — 개발자가 근거 청크를 DB에서 찾아 검증). `page`는 non-null 시 추가
+      (현 docx는 전부 null, 코드가 null 허용). `doc_id`·`source`는 1차 미사용. 출처키 = `app.retrieval.source-keys`.
+- [ ] `ChatService` 스텁을 임베딩(2-a)→검색→top-k 반환으로 연결(**생성은 제외**, Phase 3).
+
+**DoD(2-b):** `/api/chat`(생성 제외) → 실 documents 기준 top-k 청크 + 출처(`title #chunk_index`, page는 있을 때).
 
 ---
 
