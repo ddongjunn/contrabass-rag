@@ -146,12 +146,15 @@
 **DoD(5-a):** 빌드/단위테스트 그린 ✅(총 21건). 빈입력·과길이·금칙어 → 임베딩/생성 0회 정적 검증.
 (런타임 차단 시연·LLM 0회 실측은 사용자 검수.)
 
-### Phase 5-b — Moderation 2차 필터 (OpenAI)
-- [ ] `guard/application/ModerationService`(인터페이스) + `guard/infrastructure/OpenAiModerationClient`
-      (Spring AI ModerationModel, `app.guard.moderation.*`). 금칙어 통과분 중 애매한 입력 2차 판별.
-- [ ] `DefaultInputGuard` 체인 끝에 Moderation 연결(`enabled=false` 시 건너뜀). 차단 시 임베딩·생성 **0회**.
+### Phase 5-b — Moderation 2차 필터 (OpenAI) ✅
+- [x] `guard/application/ModerationService`(인터페이스) + `guard/infrastructure/OpenAiModerationClient`
+      (Spring AI `ModerationModel` autoconfig, 모델명 = `app.guard.moderation.model`을 `OpenAiModerationOptions`로
+      요청당 주입 — 하드코딩 금지). `flagged` 시 차단(reason=moderation).
+- [x] `DefaultInputGuard` 체인 끝에 Moderation 연결 — `enabled=false` 시 `@ConditionalOnProperty`로 빈 미생성→
+      nullable 주입으로 건너뜀. 앞 단계(입력검증·금칙어) 차단 시 moderation 미호출(차단=임베딩·생성 **0회**).
 
-**DoD(5-b):** 유해 입력 Moderation 차단 시 LLM 0회. (실 API 호출은 사용자 검수.)
+**DoD(5-b):** 빌드/단위테스트 그린 ✅(총 25건, OpenAiModerationClient flagged→Blocked 매핑·체인 단락 검증).
+유해 입력 Moderation 차단 시 LLM 0회는 사용자 런타임 검수(실 API 호출).
 
 ### Phase 5-c — 레이트리밋 + 회복탄력성 (Resilience4j 통합)
 - [ ] `build.gradle.kts`에서 `resilience4j-spring-boot3` 활성화.

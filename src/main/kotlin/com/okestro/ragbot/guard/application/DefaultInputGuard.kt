@@ -5,15 +5,21 @@ import com.okestro.ragbot.guard.domain.GuardDecision
 import com.okestro.ragbot.guard.domain.InputValidation
 import org.springframework.stereotype.Service
 
-/** 입력검증 → 로컬 금칙어 순 1차 차단. (Moderation 2차 판별은 5-b에서 이 뒤에 추가.) */
+/**
+ * 입력검증 → 로컬 금칙어 → (있으면) OpenAI Moderation 순 차단. 앞 단계에서 차단되면 뒤 단계는
+ * 호출하지 않는다. moderationService 는 app.guard.moderation.enabled=false 시 빈이 없어 null → 건너뜀.
+ */
 @Service
 class DefaultInputGuard(
     private val inputValidation: InputValidation,
     private val contentPolicy: ContentPolicy,
+    private val moderationService: ModerationService?,
 ) : InputGuard {
     override fun inspect(question: String): GuardDecision {
         val validation = inputValidation.check(question)
         if (validation is GuardDecision.Blocked) return validation
-        return contentPolicy.check(question)
+        val content = contentPolicy.check(question)
+        if (content is GuardDecision.Blocked) return content
+        return moderationService?.inspect(question) ?: GuardDecision.Allowed
     }
 }
