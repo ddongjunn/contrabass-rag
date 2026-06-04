@@ -188,11 +188,21 @@
 
 ## Phase 6 — M5: Slack 연동
 
-- [ ] `build.gradle.kts`에서 `bolt`·`bolt-socket-mode` 활성화.
-- [ ] `slack.interfaces.SocketModeRunner`(수신 → **즉시 ack** → 비동기 위임).
-- [ ] **봇/자기 메시지 무시**(`bot_id` 존재 시 드롭) — 봇 답변 재유입에 의한 무한 루프·비용 폭주 차단.
-- [ ] 비동기 실행(가상스레드/`@Async`) → `chat.application.ChatService` 호출.
-- [ ] `slack`: `SlackResponseService` + `SlackResponder`(완료 시 원 스레드 `chat.postMessage`).
+> **서브분할**(2026-06-04): 새 외부 I/O(WebSocket)+비동기+ack 타이밍+루프방지 → **6-a/6-b**로 분할.
+> Socket Mode 고정(공개 URL·서명검증 불필요). 토큰은 환경변수만(SLACK_BOT_TOKEN/SLACK_APP_TOKEN).
+
+### Phase 6-a — 연결·수신·ack·봇필터 ✅
+- [x] `build.gradle.kts`에서 `bolt`·`bolt-socket-mode` 1.45.3 활성화.
+- [x] `slack/interfaces/SocketModeRunner`: `app_mention` 수신 → **즉시 ack**. 토큰 미설정 시 Slack 비활성(REST는 동작).
+- [x] **봇/자기 메시지 무시**(`bot_id` 존재 시 드롭) — 무한 루프·비용 폭주 차단.
+- [x] 6-a는 수신 확인용 **고정 응답**(`ctx.say`)·로그까지(ChatService 연결은 6-b).
+
+**DoD(6-a):** 빌드 그린. (런타임) 멘션 → 3초 내 ack + 고정 응답, 봇 메시지 드롭 로그 — 사용자 검수.
+
+### Phase 6-b — 비동기 RAG 연결 + 답변·출처 게시
+- [ ] 비동기 실행(가상스레드 executor) → `chat.application.ChatService` 호출(ack 3초 제약 분리).
+- [ ] `slack/application/SlackResponseService` + `slack/infrastructure/SlackResponder`(완료 시 원 스레드 `chat.postMessage`로 답변+출처).
+- [ ] 6-a의 고정 응답을 RAG 답변으로 교체.
 
 **DoD:** 테스트 워크스페이스 멘션 → 스레드 답변+출처, 3초 내 ack. 봇 답변이 재유입돼도 루프 안 됨(`bot_id` 드롭 확인).
 

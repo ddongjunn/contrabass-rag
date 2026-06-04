@@ -35,9 +35,9 @@ dependencies {
 	// --- (M4) 회복탄력성 — Resilience4j 통합(Retry/CircuitBreaker + 사용자별 RateLimiter) ---
 	implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
 	implementation("org.springframework.boot:spring-boot-starter-aop")   // resilience4j 애노테이션(@Aspect) 활성화에 필요
-	// --- (M5) Slack — 해당 Phase에서 활성화 ---
-	// implementation("com.slack.api:bolt:1.45.3")
-	// implementation("com.slack.api:bolt-socket-mode:1.45.3")
+	// --- (M5) Slack — Socket Mode(공개 URL·서명검증 불필요) ---
+	implementation("com.slack.api:bolt:1.45.3")
+	implementation("com.slack.api:bolt-socket-mode:1.45.3")
 
 	// --- Test ---
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
