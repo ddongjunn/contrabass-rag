@@ -70,23 +70,27 @@
 > 각 서브 Phase는 자체 빌드·검수 가능 단위. DB 우회(스텁/시드)는 **불필요** — `contrabass_rag.documents`
 > 159행 실데이터로 검증(인터페이스는 그대로 고정, 스텁 경로 안 만듦 — 범위 축소).
 
-### Phase 2-a — 임베딩 (질문 1회 임베딩)
-- [ ] `embedding/application/EmbeddingService`(인터페이스) + `embedding/infrastructure/OpenAiEmbeddingClient`
+### Phase 2-a — 임베딩 (질문 1회 임베딩) ✅
+- [x] `embedding/application/EmbeddingService`(인터페이스) + `embedding/infrastructure/OpenAiEmbeddingClient`
       — Spring AI 자동구성 `EmbeddingModel`(yml의 `text-embedding-3-small`/1536) 주입, `embed(text)->FloatArray`.
-- [ ] 단위 테스트: `EmbeddingModel` 목으로 1회 호출 위임·결과 전달 검증(외부 호출 없음).
+- [x] 단위 테스트: `EmbeddingModel` 페이크로 1회 호출 위임·결과 전달 검증(외부 호출 없음).
 
-**DoD(2-a):** 빌드/단위테스트 그린. (런타임=사용자) 실 OpenAI 호출 시 1536차원 벡터 1회 산출.
+**DoD(2-a):** 빌드/단위테스트 그린 ✅. (런타임) 2-b `/api/chat` 경유 실 OpenAI 임베딩 1회 검증됨.
 
-### Phase 2-b — 문서 검색 + 파이프라인 연결
-- [ ] `common.config`: `PgVectorStore` 빈(또는 자동구성 활용) — `AppProperties`/yml 값 기준.
-- [ ] `retrieval/application/DocumentSearchService`(인터페이스) + `retrieval/infrastructure/PgVectorDocumentSearch`
-      (`topK`, `min-score` 미설정 시 0건만 차단), `retrieval/domain/RetrievalPolicy`(0건·저유사 차단),
+### Phase 2-b — 문서 검색 + 파이프라인 연결 ✅
+> **검색 방식 결정**: Spring AI `VectorStore.similaritySearch`는 질문 텍스트만 받아 **스토어 내부에서 재임베딩**
+> → 불변식 2(임베딩 1회·재사용) 위반·2-a 우회. 따라서 `PgVectorStore` 빈을 쓰지 않고, **2-a가 만든
+> 벡터를 받아 `JdbcTemplate`로 pgvector 코사인 검색**(`embedding <=> :vec`). documents 읽기 전용 SELECT.
+- [x] `retrieval/application/DocumentSearchService`(인터페이스 `search(queryVector, topK)`) +
+      `retrieval/infrastructure/PgVectorDocumentSearch`(JdbcTemplate, `1-(embedding<=>vec)` score, `topK`),
+      `retrieval/domain/RetrievalPolicy`(`min-score` 미설정 시 0건만, 설정 시 저유사 필터),
       `RetrievedChunk`/`Source` 도메인.
-- [ ] **출처 표기**: `title #chunk_index`(항상 — 개발자가 근거 청크를 DB에서 찾아 검증). `page`는 non-null 시 추가
+- [x] **출처 표기**: `title #chunk_index`(항상 — 개발자가 근거 청크를 DB에서 찾아 검증). `page`는 non-null 시 추가
       (현 docx는 전부 null, 코드가 null 허용). `doc_id`·`source`는 1차 미사용. 출처키 = `app.retrieval.source-keys`.
-- [ ] `ChatService` 스텁을 임베딩(2-a)→검색→top-k 반환으로 연결(**생성은 제외**, Phase 3).
+- [x] `ChatService`를 임베딩(2-a)→검색→top-k 반환(`DefaultChatService`)으로 연결(**생성은 제외**, Phase 3).
 
-**DoD(2-b):** `/api/chat`(생성 제외) → 실 documents 기준 top-k 청크 + 출처(`title #chunk_index`, page는 있을 때).
+**DoD(2-b):** `/api/chat`(생성 제외) → 실 documents 기준 top-k 청크 + 출처(`title #chunk_index`, page는 있을 때). ✅
+(검증: 빌드/단위테스트 8건 그린, 런타임 `POST /api/chat`→실 문서 제목+청크번호 출처 표기 확인.)
 
 ---
 

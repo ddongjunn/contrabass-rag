@@ -1,11 +1,9 @@
 package com.okestro.ragbot.chat.application
 
-import org.springframework.stereotype.Service
-
 /**
- * Phase 1 스텁 — 고정 에코 응답. Phase 3에서 실제 파이프라인 구현으로 교체한다.
+ * 웹 슬라이스 테스트 전용 스텁(고정 에코). 런타임 구현은 DefaultChatService(Phase 2-b).
+ * @WebMvcTest 가 @Import 로 등록한다 — @Service 불필요(컴포넌트 스캔 대상 아님).
  */
-@Service
 class StubChatService : ChatService {
     override fun handle(command: ChatCommand): ChatResult =
         ChatResult(answer = "stub: ${command.question}", sources = emptyList())
