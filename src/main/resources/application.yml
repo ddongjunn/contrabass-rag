@@ -18,6 +18,10 @@ spring:
       embedding:
         options:
           model: ${app.openai.embedding-model}
+    # ChatClient 자동구성 비활성 — provider 교체 여지 위해 ChatModel로 수동 빈 구성(generation)
+    chat:
+      client:
+        enabled: false
     # 재시도는 Resilience4j로 통합 예정(M4) → 내장 재시도 비활성(이중 재시도 방지)
     retry:
       max-attempts: 1
@@ -35,7 +39,7 @@ app:
   llm:
     provider: openai
   openai:
-    chat-model: gpt-4o
+    chat-model: gpt-4o-mini                  # 비용 최소 우선
     embedding-model: text-embedding-3-small  # 1536, 색인과 동일 고정
     embedding-dim: 1536
   retrieval:

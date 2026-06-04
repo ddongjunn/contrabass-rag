@@ -13,7 +13,7 @@
 
 | 키 | 의미 | 초기값 | 비고 |
 |---|---|---|---|
-| `app.openai.chat-model` | 생성 모델 | `gpt-4o` | 교체 가능 |
+| `app.openai.chat-model` | 생성 모델 | `gpt-4o-mini` | 비용 최소 우선·교체 가능 |
 | `app.openai.embedding-model` | 임베딩 모델 | `text-embedding-3-small` | **1536, 색인과 동일**. OpenAI API |
 | `app.openai.embedding-dim` | 임베딩 차원 | `1536` | documents/캐시 공통 |
 | `app.retrieval.top-k` | 검색 청크 수 | `5` | 2차 튜닝 |
@@ -94,13 +94,15 @@
 
 ---
 
-## Phase 3 — M2: 생성 LLM
+## Phase 3 — M2: 생성 LLM ✅
 
-- [ ] `generation`: `AnswerGenerationService` + `OpenAiChatClient`(`ChatClient.Builder`,
-      provider 교체 위해 자동구성 끄고 수동 빈). `PromptTemplates`(시스템 + top-k + 질문).
-- [ ] `chat.application.ChatService`에 임베딩→검색→생성→응답 경로 연결.
+- [x] `generation`: `AnswerGenerationService` + `OpenAiChatClient`(`ChatModel` 주입→수동 `ChatClient`,
+      `spring.ai.chat.client.enabled=false`로 자동구성 끔). `PromptTemplates`(시스템 + top-k + 질문).
+- [x] `chat.application.ChatService`(`DefaultChatService`)에 임베딩→검색→생성→응답 경로 연결.
+      검색 0건 시 생성 0회·"관련 문서 없음"(불변식 3).
 
-**DoD:** `/api/chat` → 검색 근거 기반 답변 + 출처.
+**DoD:** `/api/chat` → 검색 근거 기반 답변 + 출처. ✅
+(검증: 빌드/단위테스트 11건 그린, 런타임 `POST /api/chat`→gpt-4o-mini 근거 기반 답변+출처 확인.)
 
 ---
 

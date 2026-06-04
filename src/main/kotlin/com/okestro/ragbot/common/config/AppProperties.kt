@@ -20,7 +20,7 @@ data class AppProperties(
     )
 
     data class Openai(
-        val chatModel: String = "gpt-4o",
+        val chatModel: String = "gpt-4o-mini",
         val embeddingModel: String = "text-embedding-3-small", // 1536, 색인과 동일 고정(불변식)
         val embeddingDim: Int = 1536,
     )
