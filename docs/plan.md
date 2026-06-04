@@ -40,7 +40,9 @@
       `spring-ai-starter-vector-store-pgvector`(+ `spring-boot-starter-jdbc`), web·actuator.
 - [x] `RagbotApplication.kt`, `application.yml`(튜닝값 골격), `banned-words.txt`, Gradle wrapper.
 - [x] **`./gradlew build` 성공**(BUILD SUCCESSFUL).
-- [ ] DB VM PostgreSQL+pgvector 연결성 확인. OpenAI Key·Slack 토큰 env 주입(실행 시).
+- [x] DB VM PostgreSQL+pgvector 연결성 확인 — **`contrabass_rag` DB에 documents 159행 적재 확인**
+      (스키마 = `db/init/01-schema.sql` 일치, vector 확장 설치). env `DB_NAME=contrabass_rag`.
+- [ ] OpenAI Key·Slack 토큰 env 주입(실행 시).
 
 **DoD:** `./gradlew build` 성공 ✅ / (실행) `GET /actuator/health` → `UP`.
 
@@ -50,14 +52,15 @@
 
 ## Phase 1 — 스켈레톤 & 설정 외부화
 
-- [ ] 모듈 골격: `chat / embedding / retrieval / cache / generation / guard / slack / common`
-      + 각 모듈 계층(`architecture.md §2`).
-- [ ] **`common.config.AppProperties`**(@ConfigurationProperties) ↔ `application.yml`(`app.*`) 매핑.
-- [ ] `chat.application.ChatService` 인터페이스/스텁(단일 진입점), `ChatCommand/Result`.
-- [ ] `chat.interfaces`: `POST /api/chat` 더미 컨트롤러(`ChatRequest/Response` 확정, 에코).
-- [ ] 전역 예외 처리·로깅.
+- [x] 모듈 골격: 이번 Phase 사용 모듈만 생성(`chat`,`common`). 나머지(embedding/retrieval/…)는
+      빈 패키지 미리 만들지 않고 해당 Phase에서 생성(범위 고정).
+- [x] **`common.config.AppProperties`**(@ConfigurationProperties, `@ConfigurationPropertiesScan`) ↔ `app.*` 전체 매핑.
+- [x] `chat.application.ChatService` 인터페이스/스텁(`StubChatService`, 단일 진입점), `ChatCommand/Result`.
+- [x] `chat.interfaces`: `POST /api/chat` 컨트롤러(`ChatRequest/Response` 확정, 에코).
+- [x] 전역 예외 처리(`common.web.GlobalExceptionHandler`)·요청 로깅.
 
-**DoD:** `POST /api/chat` → 고정 스텁 응답 + 요청 로그.
+**DoD:** `POST /api/chat` → 고정 스텁 응답 + 요청 로그. ✅
+(검증: 빌드/슬라이스테스트 그린, 런타임 health=UP, `POST /api/chat`→`{"answer":"stub: …"}`, 로그 `userId=… question.len=…`)
 
 ---
 
@@ -67,9 +70,13 @@
 - [ ] `embedding`: `EmbeddingService` + `OpenAiEmbeddingClient` — 질문 1회 임베딩→`FloatArray`.
 - [ ] `retrieval`: `DocumentSearchService` + `PgVectorDocumentSearch`(`topK`·`min-score`,
       `metadata` title/page 출처), `RetrievalPolicy`(0건·저유사 차단).
-- [ ] **DB 우회**: documents 미정 시 임시 시드/스텁(인터페이스 고정), 확정 시 `app.retrieval.table`만 교체.
+- [x] ~~DB 우회(스텁/임시 시드)~~ — **불필요**. `contrabass_rag.documents` 159행 실데이터로 바로 검증.
+      인터페이스는 그대로 고정. (스텁 경로 만들지 않음 — 범위 축소)
+- [ ] **출처 표기**: `title` + `chunk_index`(항상 표기 — 개발자가 근거 청크를 DB에서 찾아 검증).
+      `page`는 non-null일 때만 추가(현재 docx라 전부 null, 코드가 null 허용). `doc_id`·`source`는 1차 미사용.
+      예: `contrabass-v3.0.5.docx #156`. 출처 키는 `app.retrieval.source-keys`로 외부화.
 
-**DoD:** `/api/chat`(생성 제외) → top-k 청크 + 출처(title/page).
+**DoD:** `/api/chat`(생성 제외) → 실 documents 기준 top-k 청크 + 출처(`title #chunk_index`, page는 있을 때).
 
 ---
 
@@ -140,11 +147,13 @@
 ## 병행 작업 메모 (외부 색인과 동시)
 
 - **색인 적재는 별도** — 문서를 `text-embedding-3-small`(OpenAI API)로 임베딩해 `documents`에 INSERT.
-  이 앱은 `documents`를 **읽기만** 한다(초기엔 비어 있을 수 있음).
-- `documents` 데이터 미적재 → Phase 2~3는 스텁/임시 시드로 진행, 인터페이스 고정.
+  이 앱은 `documents`를 **읽기만** 한다.
+- **현재 상태(2026-06-04 확인): `contrabass_rag.documents` 159행 적재 완료** → Phase 2~3 스텁 불필요, 실데이터로 진행.
+  (색인은 계속 늘어날 수 있으나 이 앱은 읽기만 하므로 영향 없음.)
 - **캐시/질의로그 테이블은 이 앱 소유** → 외부 대기 없이 Phase 4 진행 가능.
 - 외부(색인) 의존 변경 지점은 **`application.yml`(metadata 출처 키·min-score)** 한 곳.
 - 임베딩 모델/차원은 **색인과 일치**(text-embedding-3-small / 1536) — 변경 금지 불변식.
+- 실측 metadata 키: `doc_id, source, title, page(현재 전부 null), chunk_index, content_hash`.
 
 ---
 

@@ -87,3 +87,4 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - [`docs/requirements.md`](docs/requirements.md) — 개요·목표·확정 시퀀스·데이터 소유·작업범위
 - [`docs/architecture.md`](docs/architecture.md) — 기술스택·패키지 구조·컴포넌트 규약·설정
 - [`docs/plan.md`](docs/plan.md) — Phase 0~7 개발 계획·DoD·튜닝표
+- [`docs/process.md`](docs/process.md) — **단계별 개발·검수 사이클 규약**(Phase별 개발→검수, 큰 Phase 서브분할, Claude 검수 + 사용자 검수). Phase 실행 시 매번 따른다.
