@@ -3,6 +3,9 @@
 > 요구사항 [`requirements.md`](requirements.md) · 설계 [`architecture.md`](architecture.md).
 > Phase 0 → 7 순차, 각 Phase는 **완료조건(DoD)** 충족 후 다음으로.
 > DB 의존(테이블명·색인 데이터)은 스텁/placeholder로 우회하고 확정 시 `application.yml` 한 곳만 수정.
+>
+> **★ 1차 범위 = Phase 0·1·2·3·5·6·7. Phase 4(시맨틱 캐시)는 고도화로 보류**(2026-06-04 결정 —
+> 삭제 아님, §Phase 4 참고). v1 경로 = **Phase 3 → 5 → 6 → 7**.
 
 ---
 
@@ -19,8 +22,8 @@
 | `app.retrieval.top-k` | 검색 청크 수 | `5` | 2차 튜닝 |
 | `app.retrieval.min-score` | 유사도 하한 | `(미정)` | 0건/저유사 차단, 2차 |
 | `app.retrieval.table` | documents 테이블명 | `documents` | **읽기 전용**(색인 적재는 별도) |
-| `app.cache.enabled` / `.cosine-threshold` | 캐시 on·off / 히트 기준 | `true` / `0.95` | 2차 튜닝 |
-| `app.cache.table` | 캐시/질의로그 테이블명 | `(이 앱 확정)` | **이 앱 소유**(DDL·조회/저장) |
+| `app.cache.enabled` / `.cosine-threshold` | 캐시 on·off / 히트 기준 | `true` / `0.95` | **고도화 보류**(Phase 4) |
+| `app.cache.table` | 캐시/질의로그 테이블명 | `(이 앱 확정)` | **이 앱 소유** — 구현 고도화 보류 |
 | `app.slack.mode` | 연결 방식 | `socket` | **1차 고정**(공개 URL·서명검증 불필요) |
 | `app.guard.max-question-len` / `.rate-per-min` | 입력 길이 / **사용자별** 분당 한도 | `1000` / `5` | RateLimiter(`user_id` 키) |
 | `app.guard.moderation.enabled` / `.model` | Moderation | `true` / `omni-moderation-latest` | 무료 |
@@ -106,7 +109,15 @@
 
 ---
 
-## Phase 4 — M3: 시맨틱 캐시 / 질의 로그
+## Phase 4 — M3: 시맨틱 캐시 / 질의 로그  ⏸ 고도화 보류 (1차 범위 외)
+
+> **결정(2026-06-04): 시맨틱 캐시는 1차에서 제외하고 고도화로 보류한다(삭제 아님).** 근거:
+> ① 1차 비용 방어선은 캐시가 아니라 **검색 0건·유해 입력의 호출 전 단락**(Phase 5)에서 대부분 확보됨,
+> ② 시맨틱 캐시는 *임베딩 유사 ≠ 정답 동일*로 인한 **오답 히트**·**문서 갱신 시 staleness** 위험이 있어
+>    만료/무효화 전략과 함께 별도 설계가 필요, ③ chat 모델을 `gpt-4o-mini`로 두면 생성 단가가 낮아
+>    캐시 보류의 비용 영향이 작다.
+> **아래 설계·DDL은 그대로 보존**하고, 1차 코드는 임베딩 1회 재사용 seam만 유지해(이미 적용됨)
+> 고도화 시 이 자리(임베딩 직후·검색 직전)에 캐시 조회/저장을 끼우도록 한다. 1차는 이 Phase를 건너뛴다.
 
 **캐시/질의로그 테이블은 이 앱 소유** — DDL·인덱스·조회/저장 모두 이 앱(외부 합의 불필요).
 
@@ -151,8 +162,8 @@
 
 ## Phase 7 — 마무리 / 검증
 
-- [ ] E2E: 캐시 히트/미스, 검색 실패, 입력·콘텐츠 차단, Slack 게시 전 경로.
-- [ ] 로깅: 요청별 LLM 호출 여부·캐시 적중·차단 사유.
+- [ ] E2E: 검색 실패, 입력·콘텐츠 차단, Slack 게시 전 경로. (캐시 히트/미스는 고도화 시 추가)
+- [ ] 로깅: 요청별 LLM 호출 여부·차단 사유. (캐시 적중 로깅은 고도화)
 - [ ] App VM 배포 절차·환경변수 체크리스트.
 - [ ] 외부 색인 확정값(metadata 키·min-score) 반영 = `application.yml`만 수정.
 
@@ -166,7 +177,7 @@
   이 앱은 `documents`를 **읽기만** 한다.
 - **현재 상태(2026-06-04 확인): `contrabass_rag.documents` 159행 적재 완료** → Phase 2~3 스텁 불필요, 실데이터로 진행.
   (색인은 계속 늘어날 수 있으나 이 앱은 읽기만 하므로 영향 없음.)
-- **캐시/질의로그 테이블은 이 앱 소유** → 외부 대기 없이 Phase 4 진행 가능.
+- **캐시/질의로그 테이블은 이 앱 소유**(외부 대기 없음) → 단, **Phase 4는 고도화로 보류**(1차 범위 외).
 - 외부(색인) 의존 변경 지점은 **`application.yml`(metadata 출처 키·min-score)** 한 곳.
 - 임베딩 모델/차원은 **색인과 일치**(text-embedding-3-small / 1536) — 변경 금지 불변식.
 - 실측 metadata 키: `doc_id, source, title, page(현재 전부 null), chunk_index, content_hash`.
@@ -175,5 +186,5 @@
 
 ## 2차 (착수 금지)
 
-청킹 품질, top-k·min-score 튜닝, 리랭킹, 하이브리드 검색(RRF), "근거 없으면 모른다" 프롬프트
-정교화, LLM-as-judge 검증, 캐시 무효화, 상세 메트릭.
+**시맨틱 캐시/질의 로그(Phase 4 전체)**, 청킹 품질, top-k·min-score 튜닝, 리랭킹,
+하이브리드 검색(RRF), "근거 없으면 모른다" 프롬프트 정교화, LLM-as-judge 검증, 캐시 무효화, 상세 메트릭.
