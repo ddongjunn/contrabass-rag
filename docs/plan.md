@@ -199,12 +199,15 @@
 
 **DoD(6-a):** 빌드 그린. (런타임) 멘션 → 3초 내 ack + 고정 응답, 봇 메시지 드롭 로그 — 사용자 검수.
 
-### Phase 6-b — 비동기 RAG 연결 + 답변·출처 게시
-- [ ] 비동기 실행(가상스레드 executor) → `chat.application.ChatService` 호출(ack 3초 제약 분리).
-- [ ] `slack/application/SlackResponseService` + `slack/infrastructure/SlackResponder`(완료 시 원 스레드 `chat.postMessage`로 답변+출처).
-- [ ] 6-a의 고정 응답을 RAG 답변으로 교체.
+### Phase 6-b — 비동기 RAG 연결 + 답변·출처 게시 ✅
+- [x] 비동기 실행(가상스레드 executor, `newVirtualThreadPerTaskExecutor`) → 즉시 ack 후 별도 스레드에서
+      `chat.application.ChatService` 호출(ack 3초 제약 분리).
+- [x] `slack/application/SlackResponseService` + `slack/infrastructure/SlackResponder`(완료 시 원 스레드 `chat.postMessage`로 답변+출처).
+- [x] 6-a 고정 응답을 RAG 답변으로 교체. 멘션 텍스트에서 `<@봇ID>` 제거해 순수 질문 추출, userId=Slack user(레이트리밋 키),
+      threadTs=thread_ts(없으면 ts)로 스레드 응답. 처리 실패 시 안내 메시지 게시(REST 503 핸들러에 대응).
 
 **DoD:** 테스트 워크스페이스 멘션 → 스레드 답변+출처, 3초 내 ack. 봇 답변이 재유입돼도 루프 안 됨(`bot_id` 드롭 확인).
+(빌드 그린. 런타임 멘션→답변+출처·ack·루프방지는 사용자 검수.)
 
 ---
 

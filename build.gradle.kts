@@ -38,6 +38,8 @@ dependencies {
 	// --- (M5) Slack — Socket Mode(공개 URL·서명검증 불필요) ---
 	implementation("com.slack.api:bolt:1.45.3")
 	implementation("com.slack.api:bolt-socket-mode:1.45.3")
+	// Socket Mode WebSocket 백엔드(JavaWebSocket). Spring Boot 3=Jakarta라 기본 Tyrus(javax.websocket) 대신 사용
+	implementation("org.java-websocket:Java-WebSocket:1.5.7")
 
 	// --- Test ---
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
