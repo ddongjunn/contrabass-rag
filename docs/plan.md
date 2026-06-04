@@ -170,15 +170,19 @@
 **DoD(5-c-1):** 무관 질문 → 출처 0·LLM 0회(로그 검증). 정상 질문은 임계값 통과해 답변+출처 유지.
 (빌드/테스트 25건 그린. 런타임 무관 질문 LLM 0회 시연은 사용자 검수.)
 
-### Phase 5-c-2 — 레이트리밋 + 회복탄력성 (Resilience4j 통합)
-- [ ] `build.gradle.kts`에서 `resilience4j-spring-boot3` 활성화.
-- [ ] **사용자별** 레이트리밋(`rate-per-min` 템플릿, `RateLimiterRegistry`를 Slack `user_id`로 키잉 — 전역 단일 인스턴스 금지).
-- [ ] **회복탄력성**: OpenAI 임베딩·생성·모더레이션에 `Retry`+`CircuitBreaker`(+`TimeLimiter` — 동기 호출이라
-      executor 데코레이션 vs HTTP read-timeout 중 착수 시 결정). 내장 재시도 비활성(`spring.ai.retry.max-attempts=1`, 이미 적용).
-- [ ] 출처 포맷 통일(Slack/REST 공통).
+### Phase 5-c-2 — 레이트리밋 + 회복탄력성 (Resilience4j 통합) ✅
+- [x] `build.gradle.kts`에서 `resilience4j-spring-boot3:2.3.0` + `spring-boot-starter-aop`(@Aspect 활성화) 추가.
+- [x] **사용자별** 레이트리밋: `RateLimitGuard`(인터페이스) + `Resilience4jRateLimitGuard`(`RateLimiterRegistry`를
+      `userId`로 키잉 — 사용자별 버킷, 전역 단일 아님). 한도 = `app.guard.rate-per-min`(코드에서 `RateLimiterConfig` 구성).
+      초과 시 즉시 거절(대기0)·안내, **임베딩·생성 0회**. `DefaultChatService` 맨 앞에 배치.
+- [x] **회복탄력성**: OpenAI 임베딩·생성·모더레이션 메서드에 `@Retry`+`@CircuitBreaker`(인스턴스 `openai`).
+      재시도 대상 = `TransientAiException`(429/5xx)·`ResourceAccessException`(타임아웃/IO), `NonTransientAiException`(4xx) 제외.
+      **TimeLimiter 대신 `spring.http.client.read/connect-timeout`로 시간 제한**(동기 호출, 2026-06-04 결정). 내장 재시도 비활성(이미 적용).
+- [x] `GlobalExceptionHandler`: 재시도 소진/서킷 오픈(`TransientAiException`·`ResourceAccessException`·`CallNotPermittedException`) → 503 + 안내(추가 비용 0).
 
 **DoD:** 잡담/과도요청/욕설 차단, 무관 질문 "문서 없음", 정상 질문 출처 포함 — 케이스별 LLM
 호출수 검증. OpenAI 장애 모사 시 CircuitBreaker·타임아웃 동작 확인.
+(빌드/단위테스트 28건 그린. 런타임 레이트리밋 초과·장애 모사는 사용자 검수.)
 
 ---
 

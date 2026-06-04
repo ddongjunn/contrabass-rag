@@ -3,6 +3,8 @@ package com.okestro.ragbot.guard.infrastructure
 import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.guard.application.ModerationService
 import com.okestro.ragbot.guard.domain.GuardDecision
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.ai.moderation.ModerationModel
 import org.springframework.ai.moderation.ModerationPrompt
 import org.springframework.ai.openai.OpenAiModerationOptions
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Component
 /**
  * OpenAI Moderation 2차 필터. 모델명 = app.guard.moderation.model(요청 옵션으로 주입, 하드코딩 금지).
  * 결과가 flagged 면 차단. app.guard.moderation.enabled=false 면 이 빈이 생성되지 않아 가드에서 건너뜀.
+ * OpenAI 호출은 Resilience4j `openai` 인스턴스로 Retry(429/5xx)+CircuitBreaker 보호(설정 resilience4j.*).
  */
 @Component
 @ConditionalOnProperty(prefix = "app.guard.moderation", name = ["enabled"], havingValue = "true", matchIfMissing = true)
@@ -23,6 +26,8 @@ class OpenAiModerationClient(
         .model(props.guard.moderation.model)
         .build()
 
+    @Retry(name = "openai")
+    @CircuitBreaker(name = "openai")
     override fun inspect(question: String): GuardDecision {
         val moderation = moderationModel.call(ModerationPrompt(question, options)).result.output
         val flagged = moderation.results.any { it.isFlagged }
