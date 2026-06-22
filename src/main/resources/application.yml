@@ -69,6 +69,11 @@ app:
     banned-words-path: classpath:banned-words.txt
   slack:
     mode: socket                              # 1차 고정(아웃바운드 WebSocket, 공개 URL·서명검증 불필요)
+  router:
+    model: gpt-4o-mini                        # 라우팅용 작고 빠른 모델
+    temperature: 0.0
+    min-confidence: 0.5                        # 미만이면 CLARIFY 폴백
+    history-turns: 2                           # 라우터가 LLM에 넘기는 최근 메시지 수(현재 질문 포함)
 
 # --- 회복탄력성 (Resilience4j 통합) ---
 # OpenAI 임베딩·생성·모더레이션 공통 인스턴스 'openai'. 시간 제한은 spring.http.client.* 로 처리(TimeLimiter 미사용).

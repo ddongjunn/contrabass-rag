@@ -14,6 +14,7 @@ data class AppProperties(
     val cache: Cache = Cache(),
     val guard: Guard = Guard(),
     val slack: Slack = Slack(),
+    val router: Router = Router(),
 ) {
     data class Llm(
         val provider: String = "openai",
@@ -58,5 +59,12 @@ data class AppProperties(
 
     data class Slack(
         val mode: String = "socket",         // 1차 고정
+    )
+
+    data class Router(
+        val model: String = "gpt-4o-mini",   // 라우팅용 작고 빠른 모델 (교체 가능)
+        val temperature: Double = 0.0,
+        val minConfidence: Double = 0.5,      // 미만 → CLARIFY 폴백
+        val historyTurns: Int = 2,            // 라우터가 LLM에 넘기는 최근 메시지 수(현재 질문 포함)
     )
 }
