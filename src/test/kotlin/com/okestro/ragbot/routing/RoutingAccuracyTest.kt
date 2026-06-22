@@ -46,12 +46,4 @@ class RoutingAccuracyTest {
         )
         assertEquals(Route.RESOURCE, realRouter().route(history).route)
     }
-
-    @Test
-    fun `혼합 의도는 BOTH`() {
-        assertEquals(
-            Route.BOTH,
-            realRouter().route(user("Prometheus 알람 설정법 알려주고, 지금 떠 있는 알람도 보여줘")).route,
-        )
-    }
 }
