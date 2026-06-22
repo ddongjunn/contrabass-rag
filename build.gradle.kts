@@ -63,6 +63,14 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
+tasks.register<JavaExec>("routingCli") {
+	group = "application"
+	description = "질문 라우터 수동 확인용 CLI (OPENAI_API_KEY 필요)"
+	mainClass.set("com.okestro.ragbot.routing.interfaces.RoutingCliKt")
+	classpath = sourceSets["main"].runtimeClasspath
+	standardInput = System.`in`
+}
+
 // 실행 가능한 bootJar만 산출 (build/libs에 plain jar를 만들지 않음 → Docker COPY *.jar 안전)
 tasks.named<Jar>("jar") {
 	enabled = false
