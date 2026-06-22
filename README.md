@@ -99,3 +99,21 @@ VM 배포(앱+pgvector 컨테이너):
 - [`docs/requirements.md`](docs/requirements.md) — 요구사항·시퀀스·데이터 소유·데이터 계약
 - [`docs/architecture.md`](docs/architecture.md) — 기술스택·패키지 구조·컴포넌트 규약·설정
 - [`docs/plan.md`](docs/plan.md) — Phase별 개발 계획
+
+## 질문 라우터 (Question Router)
+
+사용자 질문을 `DOC / RESOURCE / BOTH / CLARIFY`로 분류하는 독립 모듈(`com.okestro.ragbot.routing`).
+아직 RAG/리소스 파이프라인에 연결되지 않은 1단계 컴포넌트다.
+
+### 설정 (`application.yml`)
+`app.router.*` — `model`(라우팅 모델), `temperature`, `min-confidence`(미만이면 CLARIFY), `history-turns`(LLM에 넘기는 최근 메시지 수).
+
+### 테스트
+- 로직 테스트(키 불필요, 항상 실행): `./gradlew test`
+- 실제 분류 정확도(선택): `OPENAI_API_KEY`가 있으면 `RoutingAccuracyTest`가 자동 실행된다.
+
+### 수동 CLI
+```
+OPENAI_API_KEY=sk-... ./gradlew routingCli -q --console=plain
+```
+질문을 타이핑하면 `route / confidence / reason`을 출력한다(빈 줄/Ctrl-D 종료).
