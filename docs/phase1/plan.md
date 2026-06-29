@@ -6,6 +6,10 @@
 >
 > **★ 1차 범위 = Phase 0·1·2·3·5·6·7. Phase 4(시맨틱 캐시)는 고도화로 보류**(2026-06-04 결정 —
 > 삭제 아님, §Phase 4 참고). v1 경로 = **Phase 3 → 5 → 6 → 7**.
+>
+> **2차 개발(진행 중)** — 질문 라우터(`routing/` ✅) + RESOURCE 경로(`resource/` R1~R4):
+> [`docs/future/resource-prometheus-path.md`](future/resource-prometheus-path.md) 참고.
+> 전체 시스템 플로우: [`docs/superpowers/system-flow.md`](../docs/superpowers/system-flow.md)
 
 ---
 

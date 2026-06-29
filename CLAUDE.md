@@ -88,7 +88,29 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
      1차 비용 방어선은 검색 0건·유해 입력의 **호출 전 단락**(Phase 5)에서 확보한다.
 
 ## 프로젝트 문서
-- [`docs/requirements.md`](docs/requirements.md) — 개요·목표·확정 시퀀스·데이터 소유·작업범위
-- [`docs/architecture.md`](docs/architecture.md) — 기술스택·패키지 구조·컴포넌트 규약·설정
-- [`docs/plan.md`](docs/plan.md) — Phase 0~7 개발 계획·DoD·튜닝표
-- [`docs/process.md`](docs/process.md) — **단계별 개발·검수 사이클 규약**(Phase별 개발→검수, 큰 Phase 서브분할, Claude 검수 + 사용자 검수). Phase 실행 시 매번 따른다.
+
+**공통 (항상 최신 유지)**
+- [`docs/requirements.md`](docs/requirements.md) — 개요·목표·확정 시퀀스·데이터 소유·작업범위 (1차+2차 통합)
+- [`docs/architecture.md`](docs/architecture.md) — 기술스택·패키지 구조·컴포넌트 규약·설정 (living document)
+- [`docs/process.md`](docs/process.md) — **단계별 개발·검수 사이클 규약** (1차·2차 동일 적용)
+
+**1차 POC — RAG 기반 Slack 챗봇 [완료]**
+- [`docs/phase1/plan.md`](docs/phase1/plan.md) — Phase 0~7 개발 계획·DoD (완료 이력)
+
+**2차 POC — 질문 라우터 + RESOURCE(Prometheus) 경로 [진행 중]**
+- [`docs/phase2/plan.md`](docs/phase2/plan.md) — R0(라우터 ✅)~R4 개발 계획·DoD·설계도
+
+## 문서 업데이트 규칙
+
+**계획이 추가·변경될 때마다 아래 문서를 함께 업데이트한다. 코드만 바꾸고 문서를 빠뜨리지 않는다.**
+
+| 변경 유형 | 업데이트 대상 |
+|---|---|
+| 새 Phase·기능 추가 | `requirements.md`(작업범위), 해당 `phase1/plan.md` 또는 `phase2/plan.md` |
+| 패키지·모듈 구조 변경 | `architecture.md`(패키지 구조 섹션) |
+| 파이프라인 플로우 변경 | `phase2/plan.md`(전체 설계도), `README.md`(동작 흐름) |
+| 환경변수·설정값 추가 | `README.md`(환경변수 섹션), `architecture.md`(설정 표) |
+| Phase 완료 | 해당 plan.md 체크박스, `requirements.md`(작업범위 상태) |
+
+> `process.md`는 개발 프로세스 규약이라 기능 변경 시 수정 불필요.
+> `README.md`는 외부 진입점이므로 항상 최신 상태를 유지한다.

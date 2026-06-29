@@ -1,6 +1,7 @@
 # requirements.md — ragbot-server 요구사항
 
-> 무엇을·왜 만드는가. 설계/구조는 [`architecture.md`](architecture.md), 실행 계획은 [`plan.md`](plan.md).
+> 무엇을·왜 만드는가. 설계/구조는 [`architecture.md`](architecture.md).
+> 1차 실행 계획: [`phase1/plan.md`](phase1/plan.md) · 2차 실행 계획: [`phase2/plan.md`](phase2/plan.md)
 
 ## 1. 개요
 
@@ -51,11 +52,24 @@
 
 ## 4. 작업 범위
 
-**1차 (지금 구현):** M0 스캐폴드 → M1 임베딩+문서검색(출처) → M2 생성 →
+**1차 (완료):** M0 스캐폴드 → M1 임베딩+문서검색(출처) → M2 생성 →
 M4 요청/응답 처리(가드·레이트리밋·**콘텐츠 필터**·**회복탄력성**) → M5 Slack 연동.
 *(M3 시맨틱 캐시는 **고도화로 보류** — 삭제 아님, `plan.md §Phase 4` 참고.)*
 
-**2차 (착수 금지):** **시맨틱 캐시/질의 로그(M3)**, 청킹 품질, top-k·`min-score` 튜닝, 리랭킹,
+**2차 (진행 중):** 질문 라우터(`routing/`) + RESOURCE(Prometheus) 경로(`resource/`).
+DOC 전용 파이프라인을 인프라 실시간 지표 조회로 확장한다.
+
+| 단계 | 내용 | 상태 |
+| --- | --- | --- |
+| 질문 라우터 | 자연어 → DOC / RESOURCE / CLARIFY 분류 (LLM 1회) | ✅ 완성, 미배선 |
+| RESOURCE R1 | 자연어 → ResourceQuery 조건추출 (LLM strict json_schema) | ✅ 완성 |
+| RESOURCE R2 | Metric Catalog + PromQlBuilder (자연어→PromQL 조립) | 🔲 예정 |
+| RESOURCE R3 | Prometheus HTTP 클라이언트 + 템플릿 답변 | 🔲 예정 |
+| RESOURCE R4 | 라우터 + RESOURCE를 DefaultChatService에 배선 | 🔲 예정 |
+
+> 2차 상세 계획: [`phase2/plan.md`](phase2/plan.md)
+
+**후속 (착수 금지):** **시맨틱 캐시/질의 로그(Phase 4)**, 청킹 품질, top-k·`min-score` 튜닝, 리랭킹,
 하이브리드 검색(RRF), "근거 없으면 모른다" 프롬프트 정교화, LLM-as-judge 검증, 캐시 무효화, 메트릭.
 
 ## 5. 데이터 계약 (색인과의 불변식 — 변경 시 합의 필요)

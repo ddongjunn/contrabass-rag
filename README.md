@@ -98,10 +98,11 @@ VM 배포(앱+pgvector 컨테이너):
 
 ## 문서
 - [`CLAUDE.md`](./CLAUDE.md) — 코딩 가이드라인 + 프로젝트 불변식
-- [`docs/requirements.md`](docs/requirements.md) — 요구사항·시퀀스·데이터 소유·데이터 계약
+- [`docs/requirements.md`](docs/requirements.md) — 요구사항·시퀀스·데이터 소유·데이터 계약 (1차+2차 통합)
 - [`docs/architecture.md`](docs/architecture.md) — 기술스택·패키지 구조·컴포넌트 규약·설정
-- [`docs/plan.md`](docs/plan.md) — Phase별 개발 계획 (1차 Phase 0~7)
-- [`docs/future/resource-prometheus-path.md`](docs/future/resource-prometheus-path.md) — RESOURCE(Prometheus) 경로 개발 계획 (Phase R1~R4)
+- [`docs/process.md`](docs/process.md) — 단계별 개발·검수 사이클 규약
+- [`docs/phase1/plan.md`](docs/phase1/plan.md) — 1차 개발 계획 Phase 0~7 (완료)
+- [`docs/phase2/plan.md`](docs/phase2/plan.md) — 2차 개발 계획 R0~R4 (진행 중, 설계도 포함)
 
 ## 질문 라우터 (Question Router)
 
