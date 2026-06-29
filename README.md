@@ -1,58 +1,81 @@
 # ragbot-server
 
-사내 API·도메인 지식을 **RAG**로 검색해 **Slack**에서 답하는 사내 LLM 챗봇의 **봇 서버**입니다.
+사내 API·도메인 지식을 **RAG**로 검색하고 인프라 실시간 지표를 **Prometheus**에서 조회해
+**Slack**에서 답하는 사내 LLM 챗봇의 **봇 서버**입니다.
+
 별도 UI 없이 Slack을 프론트로 쓰며, 본 레포는 검색·생성을 오케스트레이션하는 **Spring AI
-기반 봇 서버**만 다룹니다. **이 봇 서버가 곧 "RAG 챗봇 서버"** — 별도 RAG 서버를 두지
-않습니다. 문서 색인(임베딩해 적재)은 별도(색인 레포)가 담당하며, 이 앱은 `documents`를 **읽기만** 합니다.
+기반 봇 서버**만 다룹니다. **이 봇 서버가 곧 "RAG 챗봇 서버"** — 별도 RAG 서버를 두지 않습니다.
+문서 색인(임베딩해 적재)은 별도(색인 레포)가 담당하며, 이 앱은 `documents`를 **읽기만** 합니다.
 
 > **임베딩은 OpenAI API 호출**입니다(로컬 모델 아님). `text-embedding-3-small`은 OpenAI 독점이라
 > 로컬 구동이 불가하며, 색인·질의 임베딩 모두 OpenAI를 HTTP로 호출합니다.
 
 ## 핵심 목표
+
 - **토큰 낭비 방지** — 검색 실패·유해 입력 시 LLM 호출을 앞단에서 차단 (캐시 히트 차단은 고도화)
 - **환각 방지** — 검색 근거(top-k 청크)에 기반해서만 답하고 **출처(title/page)** 표기
+- **실시간 인프라 지표** — Prometheus PromQL 조회로 CPU·메모리·네트워크·디스크 TopN 답변
 
 ## 동작 흐름 (질의)
 
-> **1차 보류:** 아래 시퀀스의 **시맨틱 캐시(C) 단계는 고도화로 보류**(삭제 아님). 1차 실행 경로는
-> 캐시 조회/저장을 건너뛴 **임베딩→검색→생성**입니다. 임베딩 1회 재사용 seam은 유지합니다.
+사용자 질문은 **질문 라우터**가 먼저 `DOC / RESOURCE / CLARIFY` 세 경로로 분류합니다.
 
 ```mermaid
 sequenceDiagram
-    actor U as 사용자
+    actor U as 사용자 (Slack)
     participant B as 봇 서버
-    participant E as OpenAI Embedding API<br/>(text-embedding-3-small)
-    participant C as 시맨틱 캐시 (pgvector)
+    participant R as 질문 라우터 (gpt-4o-mini)
+    participant E as OpenAI Embedding
     participant D as pgvector (documents)
-    participant L as 생성 LLM (gpt)
+    participant L as 생성 LLM (gpt-4o-mini)
+    participant P as Prometheus
 
-    U->>B: 질문
-    B->>E: 질문 임베딩 요청 (★색인과 동일 모델)
-    E-->>B: 질문 벡터 (1536d)
-    B->>C: 유사 질문 조회 (cosine > 0.95)
-    alt 캐시 히트
-        C-->>B: 저장된 답변
-        B-->>U: 답변 반환 (LLM 호출 없음 ✅)
-    else 캐시 미스
-        B->>D: 유사도 검색 ORDER BY embedding <=> 질문벡터 LIMIT 5
+    U->>B: @봇 질문 (+ 스레드 히스토리)
+    B->>B: 입력가드 (금칙어 + Moderation)
+    B->>R: route(history) — LLM ①
+
+    alt DOC — 문서·API 기반 질문
+        R-->>B: DOC
+        B->>E: 질문 임베딩 (★색인과 동일 모델, 1회)
+        E-->>B: 벡터 (1536d)
+        B->>D: top-k 검색
         D-->>B: top-5 청크 + 출처
-        B->>L: 시스템 + 검색청크 + 질문 (★여기서만 생성 호출)
-        L-->>B: 답변 생성
-        B->>C: 질문벡터 + 답변 저장 (모든 질의 기록)
+        B->>L: 생성 — LLM ②
+        L-->>B: 답변
         B-->>U: 답변 + 출처(title/page)
+    else RESOURCE — 인프라 실시간 지표 조회
+        R-->>B: RESOURCE
+        B->>L: 조건추출 — LLM ② (strict json_schema)
+        L-->>B: ResourceQuery (metric·topN·sort·window·project·instanceName)
+        B->>B: PromQL 조립 (PromQlBuilder, LLM 0회)
+        B->>P: PromQL HTTP 조회
+        P-->>B: 지표 데이터
+        B-->>U: 템플릿 답변 (LLM 0회)
+    else CLARIFY — 질문 유형 불명확
+        R-->>B: CLARIFY
+        B-->>U: 되물음 (유료호출 0)
     end
 ```
 
-> 질문 임베딩은 **요청당 1회만** 계산해 문서 검색에 재사용하고(캐시 조회 재사용은 고도화), 비싼 LLM
-> 생성은 **검색 성공 경로에서만** 발생합니다(캐시 미스 게이트는 고도화).
+**비용 방어선:**
+- 유해 입력(금칙어·Moderation) → 라우팅 전 단락 (LLM 0회)
+- DOC 검색 0건 → 생성 LLM 호출 생략
+- CLARIFY → 유료호출 없이 되물음
+- RESOURCE → 추출 1회만, 템플릿 답변 (생성 LLM 0회)
+
+> **스레드 히스토리**: Slack 멘션이 스레드 안에 있으면 `conversations.replies`로 직전 대화를 조회해
+> `ChatCommand.history`에 담아 라우터에 전달합니다(맥락 후속 질문 지원).
+> 루트 메시지(첫 멘션)는 히스토리 없이 단발성으로 처리합니다.
 
 ## 기술 스택
+
 - **Kotlin** · JDK 21(LTS) · **Spring Boot 3.5.14** · **Spring AI 1.1.7** · Gradle(Kotlin DSL)
-- OpenAI (Chat, Embedding, **Moderation**) — 모두 API 호출
+- OpenAI: Chat(`gpt-4o-mini`), Embedding(`text-embedding-3-small`), **Moderation**(`omni-moderation-latest`)
 - 데이터 접근: **JdbcTemplate** (JPA 미사용)
 - 회복탄력성: **Resilience4j 통합** (Retry·CircuitBreaker·TimeLimiter·RateLimiter)
 - PostgreSQL + **pgvector** (cosine / HNSW)
-- Slack Bolt (Socket Mode 고정)
+- Slack Bolt SDK (Socket Mode — WebSocket 고정, 공개 URL 불필요)
+- Prometheus: RestClient HTTP GET `/api/v1/query` (Resilience4j `prometheus` 인스턴스)
 
 ## 프로젝트 구조
 
@@ -60,64 +83,100 @@ sequenceDiagram
 모듈** 안에 둡니다 (`com.okestro.ragbot`, `src/main/kotlin`).
 
 ```
-chat/          오케스트레이션 유스케이스 — 파이프라인 단일 진입점 (ChatService)
-embedding/     질문 임베딩 (OpenAI API, 1회 계산 후 재사용)
-retrieval/     documents top-k 검색 + 출처
-cache/         시맨틱 캐시 조회/저장 (이 앱 소유 테이블) — ⏸ 고도화 보류(1차 미생성)
+chat/          오케스트레이션 — 파이프라인 단일 진입점 (ChatService)
+               └─ domain/ConversationMessage  (스레드 히스토리 메시지 타입)
+embedding/     질문 임베딩 (OpenAI API, 1회 계산 후 검색에 재사용)
+retrieval/     documents top-k 검색 + 출처 (pgvector cosine)
+cache/         시맨틱 캐시 ⏸ 고도화 보류 (1차 미생성)
 generation/    LLM 답변 생성 (ChatClient) · 프롬프트
 guard/         입력 검증 · 레이트리밋 · 콘텐츠 필터(금칙어 + Moderation)
-slack/         Slack 인그레스 · 응답 게시
-routing/       질문 라우터 (DOC / RESOURCE / CLARIFY 분류) — 완성, 파이프라인 배선 예정
-resource/      인프라 실시간 지표 조회 (Prometheus TopN) — 🚧 개발 예정(Phase R1~R4)
-common/        config · Resilience4j
+slack/         Slack 인그레스 (SocketModeRunner) · 응답 게시 (SlackResponder)
+routing/       질문 라우터 DOC/RESOURCE/CLARIFY (LLM strict json_schema) ✅ 완료
+resource/      인프라 실시간 지표 조회 파이프라인 (Prometheus TopN) ✅ 완료
+               ├─ application/  MetricQueryExtractor · MetricCatalog · PromQlBuilder
+               │                PrometheusClient · ResourceAnswerTemplate · ResourceService
+               ├─ domain/       MetricPattern · ResourceQuery · ResourceExtraction
+               │                MetricCatalogEntry · MetricSample · PromPattern
+               └─ infrastructure/ HttpPrometheusClient (RestClient + TLS 설정 + Resilience4j)
+common/        config · AppProperties · Resilience4j
 ```
-
-> 현재 1차(Phase 0~7) 구현 완료. `routing/`은 완성됐으나 파이프라인 미연결.
-> `resource/`는 [`docs/future/resource-prometheus-path.md`](docs/future/resource-prometheus-path.md)의 Phase R1~R4에서 추가됩니다.
 
 ## 빌드 / 실행
 
 ```bash
-./gradlew build          # 빌드 (BUILD SUCCESSFUL)
-./gradlew bootRun        # 로컬 실행 (OPENAI_API_KEY·DB 접속정보 env 필요)
-./gradlew test           # 테스트
+./gradlew build          # 빌드
+./gradlew bootRun        # 로컬 실행 (환경변수 필요)
+./gradlew test           # 테스트 (OpenAI 키 없이 단위 테스트 전체 실행 가능)
+./gradlew routingCli     # 라우터 수동 확인 (OPENAI_API_KEY 필요)
+./gradlew resourceCli    # RESOURCE 경로 E2E 확인 (OPENAI_API_KEY + PROMETHEUS_URL 필요)
 ```
 
-VM 배포(앱+pgvector 컨테이너):
+VM 배포 (앱 + pgvector 컨테이너):
 
 ```bash
-./deploy.sh              # git pull → 빌드 + 기동(up -d --build) 후 헬스 대기  ← 기본
+./deploy.sh              # git pull → 빌드 + 기동(docker compose up -d --build) 후 헬스 대기
 ./deploy.sh up           # pull 없이 빌드 + 기동
 ./deploy.sh down|logs|ps|restart
-./deploy.sh <그 외>      # 정의되지 않은 인자는 docker compose 로 그대로 전달 (예: exec app sh)
+./deploy.sh <그 외>      # 정의되지 않은 인자는 docker compose로 그대로 전달 (예: exec app sh)
 ```
 
-- 시크릿은 환경변수로 주입: `OPENAI_API_KEY`(Moderation 재사용), `SLACK_BOT_TOKEN`,
-  `SLACK_APP_TOKEN`, DB 접속정보, `PROMETHEUS_URL`(RESOURCE 경로 활성 시) (`.env.example` 참고)
-- 튜닝 값(모델·top-k·임계값·테이블명·회복탄력성)은 `application.yml` 한 곳에서 관리
+> **Socket Mode 주의**: 하나의 봇 토큰으로 동시에 하나의 서버만 연결됩니다.
+> VM 봇 서버가 떠 있는 상태에서 로컬 서버를 올리면 연결이 충돌합니다.
+> 로컬 테스트는 `SLACK_BOT_TOKEN=` `SLACK_APP_TOKEN=` 을 빈값으로 두어 Socket Mode를 비활성화하고
+> REST `/api/chat`으로 검수하거나, VM에 배포해 Slack으로 직접 검수하세요.
+
+## 환경변수
+
+| 변수 | 설명 | 필수 |
+|---|---|---|
+| `OPENAI_API_KEY` | OpenAI API 키 (Chat·Embedding·Moderation·라우터·추출 모두 재사용) | ✅ |
+| `SLACK_BOT_TOKEN` | Slack Bot User OAuth Token (`xoxb-...`) | ✅ |
+| `SLACK_APP_TOKEN` | Slack Socket Mode App-Level Token (`xapp-...`) | ✅ |
+| `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL | ✅ |
+| `DB_USERNAME` / `DB_PASSWORD` | DB 접속 정보 | ✅ |
+| `PROMETHEUS_URL` | Prometheus 서버 URL (`http(s)://host:port`) | RESOURCE 경로 |
+
+튜닝값(모델·top-k·임계값·테이블명·회복탄력성·Metric Catalog)은 `application.yml` 한 곳에서 관리합니다(`.env.example` 참고).
+
+## 질문 라우터 (Question Router)
+
+사용자 질문(+ 스레드 히스토리)을 `DOC / RESOURCE / CLARIFY`로 분류하는 독립 모듈
+(`com.okestro.ragbot.routing`). `DefaultChatService`에 배선 완료.
+
+**설정** (`application.yml` → `app.router.*`):
+
+| 키 | 설명 | 기본값 |
+|---|---|---|
+| `model` | 라우팅 모델 | `gpt-4o-mini` |
+| `temperature` | 샘플링 온도 | `0.0` |
+| `min-confidence` | 미만이면 CLARIFY | `0.5` |
+| `history-turns` | LLM에 넘기는 최근 메시지 수 | `2` |
+
+수동 CLI: `OPENAI_API_KEY=sk-... ./gradlew routingCli -q --console=plain`
+
+## RESOURCE 경로 (Prometheus 지표 조회)
+
+자연어 질문 → 조건 추출 → PromQL 조립 → Prometheus 조회 → 템플릿 답변.
+생성 LLM 호출 없이 **추출 1회**로 실시간 지표를 반환합니다.
+
+**지원 메트릭** (`app.resource.catalog.*`):
+
+| 키 | 지표 | 단위 |
+|---|---|---|
+| `INSTANCE_CPU` | CPU 사용률 TopN | % |
+| `INSTANCE_MEMORY` | 메모리 사용률 TopN | % |
+| `INSTANCE_NET_TX` / `INSTANCE_NET_RX` | 네트워크 송/수신 TopN | B/s |
+| `INSTANCE_DISK_READ` / `INSTANCE_DISK_WRITE` | 디스크 읽기/쓰기 TopN | B/s |
+
+**추출 필드** (`ResourceQuery`): `metric` · `sort(DESC/ASC)` · `topN(1-20)` · `window` · `project` · `instanceName`
+
+수동 CLI: `OPENAI_API_KEY=sk-... PROMETHEUS_URL=http://... ./gradlew resourceCli -q --console=plain`
 
 ## 문서
+
 - [`CLAUDE.md`](./CLAUDE.md) — 코딩 가이드라인 + 프로젝트 불변식
 - [`docs/requirements.md`](docs/requirements.md) — 요구사항·시퀀스·데이터 소유·데이터 계약 (1차+2차 통합)
 - [`docs/architecture.md`](docs/architecture.md) — 기술스택·패키지 구조·컴포넌트 규약·설정
 - [`docs/process.md`](docs/process.md) — 단계별 개발·검수 사이클 규약
 - [`docs/phase1/plan.md`](docs/phase1/plan.md) — 1차 개발 계획 Phase 0~7 (완료)
-- [`docs/phase2/plan.md`](docs/phase2/plan.md) — 2차 개발 계획 R0~R4 (진행 중, 설계도 포함)
-
-## 질문 라우터 (Question Router)
-
-사용자 질문을 `DOC / RESOURCE / CLARIFY`로 분류하는 독립 모듈(`com.okestro.ragbot.routing`).
-구현 완료 · 단독 CLI 동작 확인됨. RAG/리소스 파이프라인 배선은 Phase R4에서 진행.
-
-### 설정 (`application.yml`)
-`app.router.*` — `model`(라우팅 모델), `temperature`, `min-confidence`(미만이면 CLARIFY), `history-turns`(LLM에 넘기는 최근 메시지 수).
-
-### 테스트
-- 로직 테스트(키 불필요, 항상 실행): `./gradlew test`
-- 실제 분류 정확도(선택): `OPENAI_API_KEY`가 있으면 `RoutingAccuracyTest`가 자동 실행된다.
-
-### 수동 CLI
-```
-OPENAI_API_KEY=sk-... ./gradlew routingCli -q --console=plain
-```
-질문을 타이핑하면 `route / confidence / reason`을 출력한다(빈 줄/Ctrl-D 종료).
+- [`docs/phase2/plan.md`](docs/phase2/plan.md) — 2차 개발 계획 R0~R4 (완료, 설계도 포함)
