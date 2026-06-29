@@ -116,6 +116,11 @@ app:
 resilience4j:
   retry:
     instances:
+      prometheus:
+        max-attempts: 2
+        wait-duration: 1s
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
       openai:
         max-attempts: 3
         wait-duration: 1s
@@ -126,6 +131,14 @@ resilience4j:
           - org.springframework.web.client.ResourceAccessException
   circuitbreaker:
     instances:
+      prometheus:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        record-exceptions:
+          - org.springframework.web.client.ResourceAccessException
       openai:
         sliding-window-type: COUNT_BASED
         sliding-window-size: 20
