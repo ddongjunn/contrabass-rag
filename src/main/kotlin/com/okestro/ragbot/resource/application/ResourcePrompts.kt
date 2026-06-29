@@ -24,16 +24,23 @@ object ResourcePrompts {
         - 지표(metric)가 불명확하거나 목록에 없을 때만 clarificationNeeded=true.
         - topN·window·sort·project는 질문에 없어도 절대 clarificationNeeded=true로 하지 않는다.
           → 언급 없으면 기본값(topN=5, window=5m, sort=DESC, project=null)을 그대로 사용한다.
+        - topN 추출 규칙:
+          · "가장 높은/낮은 VM/인스턴스" — 단수 표현, 개수 미언급 → topN=1
+          · "높은 VM 3개", "상위 10개" 등 개수 명시 → 해당 숫자
+          · "높은 VM", "많이 쓰는 인스턴스" 등 복수 표현, 개수 미언급 → 기본값 5
         - confidence는 추출 확신도(0~1). 지표가 명확하면 0.8 이상, 모호하면 0.5 미만.
 
         예시:
         [질문] cpu 사용량 가장 높은 VM 알려줘
-        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.95}
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":1,"window":"5m","project":null,"instanceName":null,"confidence":0.95}
+
+        [질문] CPU 사용량 가장 낮은 인스턴스는?
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"ASC","topN":1,"window":"5m","project":null,"instanceName":null,"confidence":0.95}
 
         [질문] 메모리 많이 쓰는 인스턴스 보여줘
         => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.93}
 
-        [질문] CPU 사용량 가장 높은 VM 5개 보여줘
+        [질문] CPU 사용량 높은 VM 5개 보여줘
         => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.95}
 
         [질문] prod 프로젝트 메모리 낮은 순으로 3개

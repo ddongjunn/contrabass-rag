@@ -84,6 +84,7 @@ app:
       base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
       connect-timeout: 3s
       read-timeout: 10s                        # 무거운 rate+조인 쿼리 타임아웃 고려
+      ssl-verify: false                        # 내부망 자체서명 인증서 대응
     catalog:
       INSTANCE_CPU:
         pattern: RATIO_TOPK

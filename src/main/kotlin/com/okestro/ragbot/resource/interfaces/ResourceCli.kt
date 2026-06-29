@@ -9,6 +9,7 @@ import com.okestro.ragbot.resource.application.ResourceAnswerTemplate
 import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.ResourceExtraction
+import com.okestro.ragbot.resource.infrastructure.HttpPrometheusClient
 import com.okestro.ragbot.routing.domain.ConversationMessage
 import com.okestro.ragbot.routing.domain.ConversationMessage.Role
 import com.okestro.ragbot.routing.infrastructure.OpenAiRouterLlmClient
@@ -31,7 +32,9 @@ fun main() {
     val chatModel = OpenAiChatModel.builder().openAiApi(api).build()
     val extractor = LlmMetricQueryExtractor(OpenAiRouterLlmClient(chatModel), props, objectMapper)
     val catalog = MetricCatalog(props)
-    val restClient = prometheusUrl?.let { RestClient.builder().baseUrl(it).build() }
+    val restClient = prometheusUrl?.let {
+        RestClient.builder().baseUrl(it).requestFactory(HttpPrometheusClient.insecureRequestFactory()).build()
+    }
 
     println("인프라 지표 조회 질문을 입력하세요 (빈 줄/Ctrl-D 종료):")
     if (prometheusUrl == null) println("  ※ PROMETHEUS_URL 미설정 — 추출·PromQL 출력만")

@@ -82,6 +82,7 @@ data class AppProperties(
             val baseUrl: String = "",         // env PROMETHEUS_URL (R3에서 필수)
             val connectTimeout: String = "3s",
             val readTimeout: String = "10s",  // 무거운 rate+조인 쿼리 고려
+            val sslVerify: Boolean = true,    // 내부망 자체서명 인증서 시 false
         )
 
         data class CatalogEntryConfig(

@@ -8,8 +8,16 @@ import com.okestro.ragbot.resource.domain.MetricSample
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.slf4j.LoggerFactory
+import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.net.http.HttpClient
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLParameters
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 @Component
 class HttpPrometheusClient(
@@ -20,9 +28,11 @@ class HttpPrometheusClient(
     private val log = LoggerFactory.getLogger(javaClass)
     private val cfg = properties.resource.prometheus
 
-    private val restClient: RestClient = RestClient.builder()
-        .baseUrl(cfg.baseUrl)
-        .build()
+    private val restClient: RestClient = run {
+        val builder = RestClient.builder().baseUrl(cfg.baseUrl)
+        if (!cfg.sslVerify) builder.requestFactory(insecureRequestFactory())
+        builder.build()
+    }
 
     @Retry(name = "prometheus")
     @CircuitBreaker(name = "prometheus")
@@ -49,6 +59,23 @@ class HttpPrometheusClient(
         return samples
     }
 
+    companion object {
+        fun insecureRequestFactory(): JdkClientHttpRequestFactory {
+            val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
+                override fun checkClientTrusted(c: Array<out X509Certificate>?, t: String?) {}
+                override fun checkServerTrusted(c: Array<out X509Certificate>?, t: String?) {}
+                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+            })
+            val sslCtx = SSLContext.getInstance("TLS")
+            sslCtx.init(null, trustAll, SecureRandom())
+            val httpClient = HttpClient.newBuilder()
+                .sslContext(sslCtx)
+                .sslParameters(SSLParameters().apply { endpointIdentificationAlgorithm = "" })
+                .build()
+            return JdkClientHttpRequestFactory(httpClient)
+        }
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     private data class PrometheusResponse(
         val status: String = "",
@@ -60,7 +87,7 @@ class HttpPrometheusClient(
         @JsonIgnoreProperties(ignoreUnknown = true)
         data class Result(
             val metric: Map<String, String> = emptyMap(),
-            val value: List<Any> = emptyList(),   // [timestamp, "value_string"]
+            val value: List<Any> = emptyList(),
         ) {
             fun toSample(unit: String): MetricSample? {
                 val instanceName = metric["instance_name"] ?: metric["domain"] ?: return null
