@@ -32,7 +32,12 @@ fun main() {
         when (val result = extractor.extract(listOf(ConversationMessage(Role.USER, line)))) {
             is ResourceExtraction.Resolved -> {
                 val q = result.query
-                println("→ [추출] metric=${q.metric}  sort=${q.sort}  topN=${q.topN}  window=${q.window}  project=${q.project ?: "(전체)"}")
+                println("→ [METRIC] metric=${q.metric}  sort=${q.sort}  topN=${q.topN}  window=${q.window}  project=${q.project ?: "(전체)"}")
+            }
+            is ResourceExtraction.InventoryResolved -> {
+                val q = result.query
+                val f = q.filters
+                println("→ [INVENTORY] kind=${q.kind}  mode=${q.mode}  status=${f.statusOp} ${f.status ?: "(없음)"}  host=${f.hypervisorHostName ?: "(전체)"}  project=${f.projectId ?: "(전체)"}  createEnable=${f.instanceCreateEnable}")
             }
             is ResourceExtraction.NeedsClarification ->
                 println("→ [되물음] ${result.message}")

@@ -2,6 +2,9 @@ package com.okestro.ragbot.resource.application
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.okestro.ragbot.common.config.AppProperties
+import com.okestro.ragbot.resource.domain.InventoryFilters
+import com.okestro.ragbot.resource.domain.InventoryKind
+import com.okestro.ragbot.resource.domain.InventoryQuery
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.domain.ResourceQuery
@@ -54,8 +57,17 @@ class LlmMetricQueryExtractor(
             is ResourceExtraction.Resolved -> {
                 val q = result.query
                 log.info(
-                    "extraction-resolved question=\"{}\" metric={} sort={} topN={} window={} project={} confidence={}",
+                    "extraction-resolved target=METRIC question=\"{}\" metric={} sort={} topN={} window={} project={} confidence={}",
                     question, q.metric, q.sort, q.topN, q.window, q.project ?: "(전체)", confidence,
+                )
+            }
+            is ResourceExtraction.InventoryResolved -> {
+                val q = result.query
+                val f = q.filters
+                log.info(
+                    "extraction-resolved target=INVENTORY question=\"{}\" kind={} mode={} status={}{} host={} project={} createEnable={} confidence={}",
+                    question, q.kind, q.mode, f.statusOp, f.status ?: "(없음)", f.hypervisorHostName ?: "(전체)",
+                    f.projectId ?: "(전체)", f.instanceCreateEnable, confidence,
                 )
             }
             is ResourceExtraction.NeedsClarification ->
@@ -66,10 +78,14 @@ class LlmMetricQueryExtractor(
     private fun toExtraction(raw: RawExtraction): ResourceExtraction {
         if (raw.clarificationNeeded || raw.confidence < cfg.minConfidence) {
             val msg = raw.clarificationMessage.ifBlank {
-                "어떤 지표를 조회할까요? (CPU 사용률, 메모리, 네트워크, 디스크 중)"
+                "무엇을 조회할까요? 지표(CPU/메모리/네트워크/디스크) 또는 리소스 목록(인스턴스/볼륨/스냅샷)을 알려주세요."
             }
             return ResourceExtraction.NeedsClarification(msg)
         }
+        return if (raw.target.equals("INVENTORY", ignoreCase = true)) toInventory(raw) else toMetric(raw)
+    }
+
+    private fun toMetric(raw: RawExtraction): ResourceExtraction {
         val metric = runCatching { MetricPattern.valueOf(raw.metric) }.getOrElse {
             return ResourceExtraction.NeedsClarification(
                 "지원하지 않는 지표입니다. 조회 가능한 지표: CPU 사용률, 메모리, 네트워크(RX/TX), 디스크(읽기/쓰기)"
@@ -86,13 +102,44 @@ class LlmMetricQueryExtractor(
         )
     }
 
+    private fun toInventory(raw: RawExtraction): ResourceExtraction {
+        val kind = runCatching { InventoryKind.valueOf(raw.kind) }.getOrElse {
+            return ResourceExtraction.NeedsClarification(
+                "어떤 리소스를 조회할까요? (인스턴스, 인스턴스 스냅샷, 볼륨, 볼륨 스냅샷 중)"
+            )
+        }
+        return ResourceExtraction.InventoryResolved(
+            InventoryQuery(
+                kind = kind,
+                mode = runCatching { InventoryQuery.Mode.valueOf(raw.mode) }.getOrDefault(InventoryQuery.Mode.LIST),
+                filters = InventoryFilters(
+                    status = raw.status?.takeIf { it.isNotBlank() },
+                    statusOp = runCatching { InventoryFilters.Op.valueOf(raw.statusOp) }.getOrDefault(InventoryFilters.Op.EQ),
+                    projectId = raw.project?.takeIf { it.isNotBlank() },
+                    hypervisorHostName = raw.hypervisorHostName?.takeIf { it.isNotBlank() },
+                    instanceCreateEnable = raw.instanceCreateEnable,
+                ),
+            )
+        )
+    }
+
     private data class RawExtraction(
+        val target: String = "METRIC",
         val clarificationNeeded: Boolean = false,
         val clarificationMessage: String = "",
+        // METRIC
         val metric: String = "",
         val sort: String = "DESC",
         val topN: Int = 5,
         val window: String = "5m",
+        // INVENTORY
+        val kind: String = "",
+        val mode: String = "LIST",
+        val status: String? = null,
+        val statusOp: String = "EQ",
+        val hypervisorHostName: String? = null,
+        val instanceCreateEnable: Boolean? = null,
+        // 공통
         val project: String? = null,
         val confidence: Double = 0.0,
     )
