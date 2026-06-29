@@ -76,11 +76,18 @@ data class AppProperties(
         val defaultWindow: String = "5m",
         val defaultTopN: Int = 5,
         val prometheus: Prometheus = Prometheus(),
+        val catalog: Map<String, CatalogEntryConfig> = emptyMap(),
     ) {
         data class Prometheus(
             val baseUrl: String = "",         // env PROMETHEUS_URL (R3에서 필수)
             val connectTimeout: String = "3s",
             val readTimeout: String = "10s",  // 무거운 rate+조인 쿼리 고려
+        )
+
+        data class CatalogEntryConfig(
+            val pattern: String = "",         // PromPattern enum name (RATIO_TOPK 등)
+            val rawMetric: String = "",       // Prometheus 메트릭 이름
+            val unit: String = "",
         )
     }
 }

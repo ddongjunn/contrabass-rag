@@ -84,6 +84,31 @@ app:
       base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
       connect-timeout: 3s
       read-timeout: 10s                        # 무거운 rate+조인 쿼리 타임아웃 고려
+    catalog:
+      INSTANCE_CPU:
+        pattern: RATIO_TOPK
+        raw-metric: libvirt_domain_info_cpu_time_seconds_total
+        unit: "%"
+      INSTANCE_MEMORY:
+        pattern: GAUGE_TOPK
+        raw-metric: libvirt_domain_memory_stats_used_percent
+        unit: "%"
+      INSTANCE_NETWORK_RX:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_interface_stats_receive_bytes_total
+        unit: "B/s"
+      INSTANCE_NETWORK_TX:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_interface_stats_transmit_bytes_total
+        unit: "B/s"
+      INSTANCE_DISK_READ:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_block_stats_read_requests_total
+        unit: "req/s"
+      INSTANCE_DISK_WRITE:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_block_stats_write_requests_total
+        unit: "req/s"
 
 # --- 회복탄력성 (Resilience4j 통합) ---
 # OpenAI 임베딩·생성·모더레이션 공통 인스턴스 'openai'. 시간 제한은 spring.http.client.* 로 처리(TimeLimiter 미사용).
