@@ -2,10 +2,13 @@ package com.okestro.ragbot.slack.interfaces
 
 import com.okestro.ragbot.chat.application.ChatCommand
 import com.okestro.ragbot.chat.application.ChatService
+import com.okestro.ragbot.chat.domain.ConversationMessage
+import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.slack.application.SlackResponseService
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.socket_mode.SocketModeApp
+import com.slack.api.methods.MethodsClient
 import com.slack.api.model.event.AppMentionEvent
 import com.slack.api.model.event.MessageEvent
 import com.slack.api.socket_mode.SocketModeClient
@@ -19,10 +22,9 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Slack Socket Mode 수신기: 채널 `app_mention` + DM(`message`, channel_type=im) 수신 → 즉시 ack(3초 제약) →
- * 봇 메시지(`bot_id`) 드롭(루프 차단) → 가상스레드에서 비동기로 [ChatService] 실행 후 답변+출처 게시([SlackResponseService]).
- * 채널 일반 메시지(멘션 아님)는 무시(비용/노이즈 방지 — 채널은 @멘션으로). 토큰은 환경변수만
- * (SLACK_BOT_TOKEN/SLACK_APP_TOKEN), 미설정 시 Slack 비활성(REST `/api/chat`는 그대로 동작).
+ * Slack Socket Mode 수신기: 채널 app_mention + DM 수신 → 즉시 ack → 가상스레드에서 비동기 처리.
+ * 멘션이 스레드 안에 있으면 conversations.replies로 이전 메시지를 조회해 ChatCommand.history에 담는다.
+ * 루트 메시지(첫 멘션)는 히스토리 없이 처리(단발성과 동일).
  */
 @Component
 class SocketModeRunner(
@@ -30,6 +32,7 @@ class SocketModeRunner(
     @Value("\${SLACK_APP_TOKEN:}") private val appToken: String,
     private val chatService: ChatService,
     private val slackResponseService: SlackResponseService,
+    private val props: AppProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val mentionRegex = Regex("<@[^>]+>")
@@ -43,42 +46,96 @@ class SocketModeRunner(
             return
         }
         val app = App(AppConfig.builder().singleTeamBotToken(botToken).build())
+
         app.event(AppMentionEvent::class.java) { payload, ctx ->
             val event = payload.event
-            if (event.botId != null) {                       // 봇/자기 메시지 → 드롭(루프 차단)
+            if (event.botId != null) {
                 log.info("slack drop bot message botId={} channel={}", event.botId, event.channel)
                 return@event ctx.ack()
             }
             val question = event.text.orEmpty().replace(mentionRegex, "").trim()
             val userId = event.user ?: "unknown"
             val channel = event.channel
-            val threadTs = event.threadTs ?: event.ts        // 멘션이 최상위면 그 ts로 스레드 시작
-            log.info("slack app_mention user={} channel={} len={}", userId, channel, question.length)
-            executor.submit { handle(question, userId, channel, threadTs) }  // ack는 즉시, RAG는 비동기
+            val currentTs = event.ts
+            val threadTs = event.threadTs ?: event.ts
+            val client = ctx.client()
+            log.info("slack app_mention user={} channel={} thread={} len={}", userId, channel, threadTs, question.length)
+            executor.submit { handle(question, userId, channel, threadTs, currentTs, client) }
             ctx.ack()
         }
+
         app.event(MessageEvent::class.java) { payload, ctx ->
             val event = payload.event
-            if (event.botId != null) return@event ctx.ack()           // 봇/자기 메시지 드롭(루프 차단)
-            if (event.channelType != "im") return@event ctx.ack()     // 채널 일반 메시지 무시(채널은 @멘션)
+            if (event.botId != null) return@event ctx.ack()
+            if (event.channelType != "im") return@event ctx.ack()
             val question = event.text.orEmpty().replace(mentionRegex, "").trim()
             val userId = event.user ?: "unknown"
+            val currentTs = event.ts
+            val threadTs = event.threadTs ?: event.ts
+            val client = ctx.client()
             log.info("slack dm user={} channel={} len={}", userId, event.channel, question.length)
-            executor.submit { handle(question, userId, event.channel, event.threadTs ?: event.ts) }
+            executor.submit { handle(question, userId, event.channel, threadTs, currentTs, client) }
             ctx.ack()
         }
+
         runCatching { SocketModeApp(appToken, app, SocketModeClient.Backend.JavaWebSocket).also { it.startAsync() } }
             .onSuccess { socketModeApp = it; log.info("Slack Socket Mode 시작됨") }
             .onFailure { log.error("Slack Socket Mode 시작 실패", it) }
     }
 
-    private fun handle(question: String, userId: String, channel: String, threadTs: String) {
+    private fun handle(
+        question: String,
+        userId: String,
+        channel: String,
+        threadTs: String,
+        currentTs: String,
+        client: MethodsClient,
+    ) {
         try {
-            val result = chatService.handle(ChatCommand(question = question, userId = userId))
+            val history = if (currentTs != threadTs) fetchThreadHistory(client, channel, threadTs, currentTs)
+                          else emptyList()
+            log.info("slack handle user={} historySize={}", userId, history.size)
+            val result = chatService.handle(ChatCommand(question = question, userId = userId, history = history))
             slackResponseService.post(channel, threadTs, result.answer, result.sources)
         } catch (e: Exception) {
             log.error("slack 처리 실패 user={}", userId, e)
             slackResponseService.post(channel, threadTs, "일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해 주세요.", emptyList())
+        }
+    }
+
+    private fun fetchThreadHistory(
+        client: MethodsClient,
+        channel: String,
+        threadTs: String,
+        currentTs: String,
+    ): List<ConversationMessage> {
+        val want = (props.router.historyTurns - 1).coerceAtLeast(0)
+        if (want == 0) return emptyList()
+
+        return try {
+            val result = client.conversationsReplies { req ->
+                req.channel(channel).ts(threadTs).limit(want + 10)
+            }
+            if (!result.isOk) {
+                log.warn("conversations.replies 실패: error={}", result.error)
+                return emptyList()
+            }
+            result.messages
+                ?.filter { it.ts != currentTs }       // 현재 질문 제외 (DefaultChatService가 추가)
+                ?.takeLast(want)
+                ?.mapNotNull { msg ->
+                    val text = msg.text.orEmpty().replace(mentionRegex, "").trim()
+                    if (text.isBlank()) null
+                    else ConversationMessage(
+                        role = if (msg.botId != null) ConversationMessage.Role.ASSISTANT
+                               else ConversationMessage.Role.USER,
+                        content = text,
+                    )
+                }
+                ?: emptyList()
+        } catch (e: Exception) {
+            log.warn("스레드 히스토리 조회 실패: {}", e.message)
+            emptyList()
         }
     }
 

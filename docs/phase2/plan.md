@@ -17,7 +17,7 @@
 | R1 조건 추출 | ✅ 완료 | `resource/` 모듈 골격. CLI로 수동 테스트 가능 |
 | R2 카탈로그·PromQL | ✅ 완료 | Metric Catalog + PromQlBuilder + instanceName 필터 |
 | R3 Prometheus 클라이언트 | 🔲 예정 | |
-| R4 파이프라인 배선 | 🔲 예정 | 라우터·RESOURCE·Slack 히스토리 모두 연결 |
+| R4 파이프라인 배선 | ✅ 완료 | 라우터·RESOURCE·Slack 히스토리 모두 연결 |
 
 ### 바로 시작하려면
 
@@ -37,7 +37,7 @@ export $(grep -v '^#' .env | xargs) && SLACK_APP_TOKEN= SLACK_BOT_TOKEN= ./gradl
 
 ### 다음 할 일
 
-**R3부터 시작한다.** `docs/phase2/plan.md §Phase R3` 의 체크리스트를 따른다.
+**R4까지 코드 완료. Slack 사용자 검수 단계.** `docs/phase2/plan.md §Phase R4 DoD` 항목을 실제 Slack에서 확인한다.
 `process.md`의 개발→검수 사이클(착수 전 정렬 → 개발 → Claude 검수 → 사용자 검수 → 커밋)을 매 Phase 적용한다.
 
 ---
@@ -276,44 +276,42 @@ env-gated `PrometheusQueryTest`(`@EnabledIfEnvironmentVariable(PROMETHEUS_URL)`)
 
 ---
 
-## Phase R4 — 파이프라인 배선 🔲 예정
+## Phase R4 — 파이프라인 배선 ✅ 완료
 
 > 라우터 + RESOURCE + Slack 히스토리를 실제 `DefaultChatService`에 모두 연결. DOC 경로 회귀 보존.
-> 이 Phase가 완료돼야 2차 목표 흐름이 end-to-end로 동작한다.
+> 커밋: R4-a `7b5fffe`, R4-b `7025380`, R4-c 이후 커밋
 
-### R4-a: 공통 타입 정리 + ChatCommand 히스토리 추가
+### R4-a: 공통 타입 정리 + ChatCommand 히스토리 추가 ✅
 
-- [ ] **선행**: `ConversationMessage`를 `routing/domain/` → `chat/domain/`으로 이동 후 `routing`·`resource`가 재참조
-      (의존성 방향: `chat`이 오케스트레이터 → `routing`/`resource`는 `chat/domain`을 참조)
-- [ ] `chat/application/ChatCommand`에 `history: List<ConversationMessage> = emptyList()` 추가
+- [x] `ConversationMessage`를 `routing/domain/` → `chat/domain/`으로 이동 (14개 파일 임포트 수정)
+- [x] `chat/application/ChatCommand`에 `history: List<ConversationMessage> = emptyList()` 추가
 
-### R4-b: DefaultChatService 라우터 분기 연결
+### R4-b: DefaultChatService 라우터 분기 연결 ✅
 
-- [ ] `DefaultChatService.handle`: 입력가드 직후 `router.route(history)` + `when(route)` 분기
+- [x] `ResourceService` 인터페이스 추출, 구현체 `DefaultResourceService`로 분리
+- [x] `DefaultChatService.handle`: 입력가드 직후 `router.route(history)` + `when(route)` 분기
       - `DOC` → 기존 임베딩→검색→생성 (그대로)
-      - `RESOURCE` → `ResourceService.handle(history)`
+      - `RESOURCE` → `resourceService.handle(history)` → 템플릿 답변
       - `CLARIFY` → 되물음 응답 (유료호출 0)
-- [ ] 케이스별 호출수 로깅 (`routingCalls/extractionCalls/llmCalls`)
-- [ ] `DefaultChatServiceTest` DOC 경로 회귀 테스트 그린 확인
+- [x] 케이스별 routingCalls/embeddingCalls/extractionCalls/llmCalls 로그
+- [x] `DefaultChatServiceTest`: DOC 회귀 4개 + RESOURCE 2개 + CLARIFY 1개 (총 7개 그린)
 
-### R4-c: Slack 스레드 히스토리 수집
+### R4-c: Slack 스레드 히스토리 수집 ✅
 
-> 라우터가 맥락 의존 질문("1번 인스턴스 상세 알려줘")을 올바르게 분류하려면
-> 직전 대화 내용을 함께 전달해야 한다. Slack 스레드가 그 출처다.
+- [x] `SocketModeRunner`에 `AppProperties` 주입
+- [x] 멘션 수신 시 `thread_ts`로 `ctx.client().conversationsReplies()` 호출
+- [x] 봇 메시지 (`bot_id` 존재) → `Role.ASSISTANT`, 사용자 → `Role.USER` 변환
+      멘션 태그(`<@U...>`) 제거 후 공백 정리
+- [x] 루트 메시지(첫 멘션, `currentTs == threadTs`) → history 빈 목록 (단발성과 동일)
+- [x] `app.router.history-turns - 1`개만 슬라이스 → `ChatCommand.history` 전달
+      (DefaultChatService가 현재 질문을 추가해 총 history-turns개가 됨)
+- [x] REST `ChatController` → `history = emptyList()` 유지 (변경 없음)
 
-- [ ] `slack/interfaces/SocketModeRunner`: 멘션 수신 시 `thread_ts`로 `conversations.replies` API 호출
-      → 해당 스레드의 최근 메시지 목록 조회
-- [ ] 봇 메시지(`bot_id` 존재) → `ConversationMessage(Role.ASSISTANT, text)`,
-      사용자 메시지 → `ConversationMessage(Role.USER, text)` 변환
-- [ ] 현재 질문 포함 최근 `app.router.history-turns`개만 슬라이스
-- [ ] 변환된 `List<ConversationMessage>`를 `ChatCommand.history`에 담아 `ChatService`에 전달
-- [ ] REST `ChatController`는 `history = emptyList()`로 단발성 동작 유지 (맥락 없음, 허용)
-
-**DoD:**
-- `./gradlew test` 그린 (DOC 경로 회귀 포함)
-- Slack에서 "CPU 높은 VM" 멘션 → RESOURCE 분류 → Prometheus 결과 → 스레드 답변 (사용자 검수)
+**DoD (사용자 검수 필요):**
+- `./gradlew test` 그린 ✅
+- Slack에서 "CPU 높은 VM" 멘션 → RESOURCE 분류 → Prometheus 결과 → 스레드 답변
 - Slack에서 맥락 후속 질문("1번 상세 알려줘") → RESOURCE 분류 (히스토리 전달 확인)
-- `POST /api/chat` DOC 질문 → 정상 RAG 답변 회귀 확인 (사용자 검수)
+- `POST /api/chat` DOC 질문 → 정상 RAG 답변 회귀 확인
 
 ---
 
