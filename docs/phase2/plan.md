@@ -5,13 +5,63 @@
 
 ---
 
+## 새 세션 시작 시 (인수인계)
+
+> **이 섹션은 AI 세션이 새로 열릴 때 가장 먼저 읽을 것.**
+
+### 현재 상태 (2026-06-29 기준)
+
+| Phase | 상태 | 비고 |
+|---|---|---|
+| R0 질문 라우터 | ✅ 완료 | `routing/` 모듈 완성. 단, 파이프라인 미연결 |
+| R1 조건 추출 | ✅ 완료 | `resource/` 모듈 골격. CLI로 수동 테스트 가능 |
+| R2 카탈로그·PromQL | 🔲 다음 | Metric Catalog + PromQlBuilder |
+| R3 Prometheus 클라이언트 | 🔲 예정 | |
+| R4 파이프라인 배선 | 🔲 예정 | 라우터·RESOURCE·Slack 히스토리 모두 연결 |
+
+### 바로 시작하려면
+
+```bash
+# 빌드 확인
+./gradlew test
+
+# 라우터 수동 테스트
+export $(grep -v '^#' .env | xargs) && ./gradlew routingCli -q --console=plain
+
+# 조건 추출 수동 테스트
+export $(grep -v '^#' .env | xargs) && ./gradlew resourceCli -q --console=plain
+
+# 서버 실행 (Slack 비활성, REST만)
+export $(grep -v '^#' .env | xargs) && SLACK_APP_TOKEN= SLACK_BOT_TOKEN= ./gradlew bootRun
+```
+
+### 다음 할 일
+
+**R2부터 시작한다.** `docs/phase2/plan.md §Phase R2` 의 체크리스트를 따른다.
+`process.md`의 개발→검수 사이클(착수 전 정렬 → 개발 → Claude 검수 → 사용자 검수 → 커밋)을 매 Phase 적용한다.
+
+---
+
 ## 목표
 
-1차 POC(RAG 기반 DOC 응답)의 단일 파이프라인을 **질문 유형에 따라 분기**되는 구조로 확장한다.
+사용자 질문의 **유형에 따라 파이프라인이 분기**되는 챗봇을 만든다.
 
-- **질문 라우터**: 사용자 질문을 `DOC / RESOURCE / CLARIFY`로 분류 → 해당 경로로 전달
-- **RESOURCE 경로**: 자연어 → 조건 추출 → PromQL 조립 → Prometheus 조회 → 템플릿 답변
-- **목표 상태**: "CPU 높은 VM 알려줘" → 라우터가 RESOURCE 분류 → Prometheus TopN 조회 → 한국어 답변
+- 문서 기반 질문(`DOC`) → 기존 RAG 경로 그대로
+- 인프라 지표 질문(`RESOURCE`) → 자연어에서 조건을 추출하고, 빠진 정보는 사용자에게 되물은 후,
+  **사내 서비스에서 실제로 사용 중인 메트릭 카탈로그 기반 PromQL 템플릿**으로 쿼리를 조립해
+  Prometheus에서 조회한 결과를 사용자 질문에 맞게 답변으로 제공한다.
+- 분류 불가(`CLARIFY`) → 무엇을 원하는지 되물음
+
+**목표 흐름 예시:**
+```
+사용자: "CPU 높은 VM 알려줘"
+  → 라우터: RESOURCE 분류
+  → 조건 추출: metric=INSTANCE_CPU, sort=DESC, topN=5 (기본값)
+  → 카탈로그: ratio_topk 패턴 + libvirt_domain_info_cpu_time_seconds_total
+  → PromQL 조립: topk(5, (sum by(domain)(rate(...[5m])) / ...) * on(domain) group_left(...) ...)
+  → Prometheus 조회: [web-01: 82%, db-01: 71%, ...]
+  → 답변: "현재 CPU 사용량이 가장 높은 인스턴스는 web-01(82%), db-01(71%) 입니다."
+```
 
 ---
 
@@ -214,20 +264,42 @@ env-gated `PrometheusQueryTest`(`@EnabledIfEnvironmentVariable(PROMETHEUS_URL)`)
 
 ## Phase R4 — 파이프라인 배선 🔲 예정
 
-> 라우터 + RESOURCE를 실제 `DefaultChatService`에 연결. DOC 경로 회귀 보존.
+> 라우터 + RESOURCE + Slack 히스토리를 실제 `DefaultChatService`에 모두 연결. DOC 경로 회귀 보존.
+> 이 Phase가 완료돼야 2차 목표 흐름이 end-to-end로 동작한다.
 
-- [ ] **선행**: `ConversationMessage`를 `routing/domain/` → `chat/domain/`으로 이동 후 `routing`이 재참조
-      (의존성 방향: `chat`이 오케스트레이터 → `routing`이 재참조하는 구조가 올바름)
+### R4-a: 공통 타입 정리 + ChatCommand 히스토리 추가
+
+- [ ] **선행**: `ConversationMessage`를 `routing/domain/` → `chat/domain/`으로 이동 후 `routing`·`resource`가 재참조
+      (의존성 방향: `chat`이 오케스트레이터 → `routing`/`resource`는 `chat/domain`을 참조)
 - [ ] `chat/application/ChatCommand`에 `history: List<ConversationMessage> = emptyList()` 추가
-      (REST는 빈 히스토리 단발성 동작, Slack은 스레드 히스토리 전달)
+
+### R4-b: DefaultChatService 라우터 분기 연결
+
 - [ ] `DefaultChatService.handle`: 입력가드 직후 `router.route(history)` + `when(route)` 분기
-      - `DOC` → 기존 임베딩→검색→생성(그대로)
-      - `RESOURCE` → `ResourceService`
+      - `DOC` → 기존 임베딩→검색→생성 (그대로)
+      - `RESOURCE` → `ResourceService.handle(history)`
       - `CLARIFY` → 되물음 응답 (유료호출 0)
 - [ ] 케이스별 호출수 로깅 (`routingCalls/extractionCalls/llmCalls`)
+- [ ] `DefaultChatServiceTest` DOC 경로 회귀 테스트 그린 확인
 
-**DoD:** `./gradlew test` 그린 (DOC 경로 회귀 포함) +
-`POST /api/chat` — RESOURCE 질문 → 실 답변 / DOC 질문 → 정상 RAG 답변 (사용자 검수).
+### R4-c: Slack 스레드 히스토리 수집
+
+> 라우터가 맥락 의존 질문("1번 인스턴스 상세 알려줘")을 올바르게 분류하려면
+> 직전 대화 내용을 함께 전달해야 한다. Slack 스레드가 그 출처다.
+
+- [ ] `slack/interfaces/SocketModeRunner`: 멘션 수신 시 `thread_ts`로 `conversations.replies` API 호출
+      → 해당 스레드의 최근 메시지 목록 조회
+- [ ] 봇 메시지(`bot_id` 존재) → `ConversationMessage(Role.ASSISTANT, text)`,
+      사용자 메시지 → `ConversationMessage(Role.USER, text)` 변환
+- [ ] 현재 질문 포함 최근 `app.router.history-turns`개만 슬라이스
+- [ ] 변환된 `List<ConversationMessage>`를 `ChatCommand.history`에 담아 `ChatService`에 전달
+- [ ] REST `ChatController`는 `history = emptyList()`로 단발성 동작 유지 (맥락 없음, 허용)
+
+**DoD:**
+- `./gradlew test` 그린 (DOC 경로 회귀 포함)
+- Slack에서 "CPU 높은 VM" 멘션 → RESOURCE 분류 → Prometheus 결과 → 스레드 답변 (사용자 검수)
+- Slack에서 맥락 후속 질문("1번 상세 알려줘") → RESOURCE 분류 (히스토리 전달 확인)
+- `POST /api/chat` DOC 질문 → 정상 RAG 답변 회귀 확인 (사용자 검수)
 
 ---
 
