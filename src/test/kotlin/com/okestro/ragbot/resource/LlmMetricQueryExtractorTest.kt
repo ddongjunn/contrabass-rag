@@ -7,8 +7,8 @@ import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.routing.StubLlmClient
-import com.okestro.ragbot.routing.domain.ConversationMessage
-import com.okestro.ragbot.routing.domain.ConversationMessage.Role
+import com.okestro.ragbot.chat.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage.Role
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

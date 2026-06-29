@@ -10,8 +10,8 @@ import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.infrastructure.HttpPrometheusClient
-import com.okestro.ragbot.routing.domain.ConversationMessage
-import com.okestro.ragbot.routing.domain.ConversationMessage.Role
+import com.okestro.ragbot.chat.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage.Role
 import com.okestro.ragbot.routing.infrastructure.OpenAiRouterLlmClient
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.api.OpenAiApi

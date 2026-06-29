@@ -6,8 +6,8 @@ import com.okestro.ragbot.resource.application.LlmMetricQueryExtractor
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.domain.ResourceQuery
-import com.okestro.ragbot.routing.domain.ConversationMessage
-import com.okestro.ragbot.routing.domain.ConversationMessage.Role
+import com.okestro.ragbot.chat.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage.Role
 import com.okestro.ragbot.routing.infrastructure.OpenAiRouterLlmClient
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.springframework.ai.openai.OpenAiChatModel

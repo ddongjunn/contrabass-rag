@@ -2,7 +2,7 @@ package com.okestro.ragbot.resource.application
 
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.ResourceExtraction
-import com.okestro.ragbot.routing.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

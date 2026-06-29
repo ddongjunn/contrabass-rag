@@ -7,7 +7,7 @@ import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.routing.application.LlmClient
 import com.okestro.ragbot.routing.application.LlmRequest
-import com.okestro.ragbot.routing.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

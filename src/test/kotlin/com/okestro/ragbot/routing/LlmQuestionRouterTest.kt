@@ -3,8 +3,8 @@ package com.okestro.ragbot.routing
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.routing.application.LlmQuestionRouter
-import com.okestro.ragbot.routing.domain.ConversationMessage
-import com.okestro.ragbot.routing.domain.ConversationMessage.Role
+import com.okestro.ragbot.chat.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage.Role
 import com.okestro.ragbot.routing.domain.Route
 import kotlin.test.Test
 import kotlin.test.assertEquals
