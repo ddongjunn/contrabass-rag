@@ -7,10 +7,12 @@ object PromQlBuilder {
 
     fun build(query: ResourceQuery, entry: MetricCatalogEntry): String {
         val rankFn = if (query.sort == ResourceQuery.Sort.DESC) "topk" else "bottomk"
-        val infoSelector = if (query.project != null)
-            "$INFO_METRIC{project_name=\"${query.project}\"}"
-        else
-            INFO_METRIC
+        val filters = listOfNotNull(
+            query.project?.let { """project_name="$it"""" },
+            query.instanceName?.let { """instance_name="$it"""" },
+        )
+        val infoSelector = if (filters.isEmpty()) INFO_METRIC
+                           else "$INFO_METRIC{${filters.joinToString(",")}}"
         val enrich = "* on(domain) group_left(instance_name, project_name) $infoSelector"
 
         return when (entry.pattern) {

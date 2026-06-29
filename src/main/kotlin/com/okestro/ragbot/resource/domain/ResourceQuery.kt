@@ -6,6 +6,7 @@ data class ResourceQuery(
     val topN: Int = 5,
     val window: String = "5m",
     val project: String? = null,
+    val instanceName: String? = null,
 ) {
     enum class Sort { DESC, ASC }
 }

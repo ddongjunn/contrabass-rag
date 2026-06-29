@@ -10,6 +10,7 @@ object ResourcePrompts {
         - topN: 상위 N개 (기본 5)
         - window: 집계 시간 윈도우 (예: 5m, 1h, 30m; 기본 5m)
         - project: 특정 프로젝트 이름 필터 (없으면 null)
+        - instanceName: 특정 VM 인스턴스 이름 필터 (없으면 null)
 
         지표 목록:
         - INSTANCE_CPU: VM 인스턴스 CPU 사용률
@@ -27,22 +28,28 @@ object ResourcePrompts {
 
         예시:
         [질문] cpu 사용량 가장 높은 VM 알려줘
-        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.95}
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.95}
 
         [질문] 메모리 많이 쓰는 인스턴스 보여줘
-        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.93}
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.93}
 
         [질문] CPU 사용량 가장 높은 VM 5개 보여줘
-        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.95}
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.95}
 
         [질문] prod 프로젝트 메모리 낮은 순으로 3개
-        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"ASC","topN":3,"window":"5m","project":"prod","confidence":0.92}
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"ASC","topN":3,"window":"5m","project":"prod","instanceName":null,"confidence":0.92}
+
+        [질문] web-server-01 CPU 사용률 알려줘
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":1,"window":"5m","project":null,"instanceName":"web-server-01","confidence":0.95}
+
+        [질문] instance-000001a2 메모리 얼마나 써?
+        => {"clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":1,"window":"5m","project":null,"instanceName":"instance-000001a2","confidence":0.93}
 
         [질문] 지금 네트워크 상태 어때?
-        => {"clarificationNeeded":true,"clarificationMessage":"수신량(RX)과 송신량(TX) 중 어느 쪽을 조회할까요?","metric":"INSTANCE_NETWORK_RX","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.35}
+        => {"clarificationNeeded":true,"clarificationMessage":"수신량(RX)과 송신량(TX) 중 어느 쪽을 조회할까요?","metric":"INSTANCE_NETWORK_RX","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.35}
 
         [질문] 서버 상태 보여줘
-        => {"clarificationNeeded":true,"clarificationMessage":"어떤 지표를 조회할까요? (CPU 사용률, 메모리, 네트워크, 디스크 중)","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.15}
+        => {"clarificationNeeded":true,"clarificationMessage":"어떤 지표를 조회할까요? (CPU 사용률, 메모리, 네트워크, 디스크 중)","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"instanceName":null,"confidence":0.15}
     """.trimIndent()
 
     fun schema(metricKeys: List<String>): String {
@@ -58,9 +65,10 @@ object ResourcePrompts {
                 "topN": { "type": "integer" },
                 "window": { "type": "string" },
                 "project": { "type": ["string", "null"] },
+                "instanceName": { "type": ["string", "null"] },
                 "confidence": { "type": "number" }
               },
-              "required": ["clarificationNeeded", "clarificationMessage", "metric", "sort", "topN", "window", "project", "confidence"],
+              "required": ["clarificationNeeded", "clarificationMessage", "metric", "sort", "topN", "window", "project", "instanceName", "confidence"],
               "additionalProperties": false
             }
         """.trimIndent()

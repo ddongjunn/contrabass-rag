@@ -15,7 +15,7 @@
 |---|---|---|
 | R0 질문 라우터 | ✅ 완료 | `routing/` 모듈 완성. 단, 파이프라인 미연결 |
 | R1 조건 추출 | ✅ 완료 | `resource/` 모듈 골격. CLI로 수동 테스트 가능 |
-| R2 카탈로그·PromQL | 🔲 다음 | Metric Catalog + PromQlBuilder |
+| R2 카탈로그·PromQL | ✅ 완료 | Metric Catalog + PromQlBuilder + instanceName 필터 |
 | R3 Prometheus 클라이언트 | 🔲 예정 | |
 | R4 파이프라인 배선 | 🔲 예정 | 라우터·RESOURCE·Slack 히스토리 모두 연결 |
 
@@ -37,7 +37,7 @@ export $(grep -v '^#' .env | xargs) && SLACK_APP_TOKEN= SLACK_BOT_TOKEN= ./gradl
 
 ### 다음 할 일
 
-**R2부터 시작한다.** `docs/phase2/plan.md §Phase R2` 의 체크리스트를 따른다.
+**R3부터 시작한다.** `docs/phase2/plan.md §Phase R3` 의 체크리스트를 따른다.
 `process.md`의 개발→검수 사이클(착수 전 정렬 → 개발 → Claude 검수 → 사용자 검수 → 커밋)을 매 Phase 적용한다.
 
 ---
@@ -206,10 +206,10 @@ ResourceService.handle(history)
 
 ---
 
-## Phase R2 — Metric Catalog + PromQlBuilder 🔲 예정
+## Phase R2 — Metric Catalog + PromQlBuilder ✅ 완료
 
 > `Resolved(ResourceQuery)` → 실제 PromQL 문자열 조립. Prometheus 실데이터 실측 완료 기반.
-> 순수함수만 — 외부 I/O 없음, 키 불필요, 항상 그린.
+> 커밋: `9c328f9` (기본), `instanceName` 추가 이후 커밋
 
 **확정 카탈로그 (라이브 실측 2026-06-23)**: groupBy = `domain`(전 메트릭 공통). info-join으로 instance_name·project_name 부착.
 
@@ -224,19 +224,33 @@ ResourceService.handle(history)
 
 **PromQL 패턴 템플릿**
 
-- 공통 enrich `{E}` = `* on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info`
+- 공통 enrich `{E}` = `* on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info[{filters}]`
+  - `project` 필터 시: `libvirt_domain_openstack_info{project_name="prod"}`
+  - `instanceName` 필터 시: `libvirt_domain_openstack_info{instance_name="web-01"}`
+  - 복합 필터: `libvirt_domain_openstack_info{project_name="prod",instance_name="web-01"}`
 - `counter_rate_topk` = `topk({topN}, sum by(domain)(rate({rawMetric}[{window}])) {E})`
 - `gauge_topk` = `topk({topN}, {rawMetric} {E})`
 - `ratio_topk` (CPU) = `topk({topN}, (sum by(domain)(rate({rawMetric}[{window}])) / on(domain) libvirt_domain_info_virtual_cpus * 100) {E})`
 
-작업:
+**ResourceQuery 필드**
 
-- [ ] `resource/domain`: `MetricCatalogEntry`(pattern, rawMetric, unit) + `PromQlBuilder`(object 순수함수, 위 3패턴 + 공통 enrich)
-- [ ] `resource/application/MetricCatalog`(@Component): config 로딩, metric enum 목록 제공
-- [ ] `app.resource.catalog` → `application.yml`(위 6키) + `AppProperties.Resource` 매핑
+| 필드 | 타입 | 기본값 | 의미 |
+|---|---|---|---|
+| `metric` | `MetricPattern` | — | 조회 지표 |
+| `sort` | `Sort(DESC/ASC)` | `DESC` | topk/bottomk |
+| `topN` | `Int` | `5` | 조회 개수 (1~20 clamp) |
+| `window` | `String` | `5m` | rate 집계 윈도우 |
+| `project` | `String?` | `null` | 프로젝트 이름 필터 |
+| `instanceName` | `String?` | `null` | VM 인스턴스 이름 필터 |
 
-**DoD:** `PromQlBuilderTest` — `(ResourceQuery, MetricCatalogEntry) → 기대 PromQL 문자열` 정확히 일치.
-CPU 키 → `ratio_topk` PromQL과 정확히 일치. `./gradlew test` 그린(키 불필요).
+- [x] `resource/domain`: `MetricCatalogEntry`, `PromPattern`, `PromQlBuilder`(object 순수함수)
+- [x] `resource/application/MetricCatalog`(@Component): config 로딩, metric enum 목록 제공
+- [x] `app.resource.catalog` → `application.yml`(6키) + `AppProperties.Resource.CatalogEntryConfig` 매핑
+- [x] `ResourceQuery`에 `instanceName: String?` 추가 → info-join 셀렉터 복합 필터 지원
+- [x] `ResourcePrompts`: `instanceName` 추출 규칙 + few-shot 2개 추가, JSON 스키마 업데이트
+
+**DoD ✅:** `PromQlBuilderTest` 9케이스 그린 (CPU/Memory/Network/Disk × DESC·ASC·project·instanceName·복합필터).
+`./gradlew test` 그린(키 불필요).
 
 ---
 

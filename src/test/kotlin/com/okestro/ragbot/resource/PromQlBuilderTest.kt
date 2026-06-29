@@ -97,6 +97,29 @@ class PromQlBuilderTest {
     }
 
     @Test
+    fun `instanceName 필터 - info 메트릭에 instance_name 셀렉터 추가`() {
+        val query = ResourceQuery(metric = MetricPattern.INSTANCE_CPU, instanceName = "web-server-01")
+
+        val result = PromQlBuilder.build(query, cpu)
+
+        assertThat(result).contains("""instance_name="web-server-01"""")
+    }
+
+    @Test
+    fun `instanceName + project 동시 필터 - 두 셀렉터 모두 포함`() {
+        val query = ResourceQuery(
+            metric = MetricPattern.INSTANCE_MEMORY,
+            project = "prod",
+            instanceName = "web-server-01",
+        )
+
+        val result = PromQlBuilder.build(query, memory)
+
+        assertThat(result).contains("""project_name="prod"""")
+        assertThat(result).contains("""instance_name="web-server-01"""")
+    }
+
+    @Test
     fun `Disk Write topN=3 ASC - bottomk counter_rate_topk`() {
         val query = ResourceQuery(
             metric = MetricPattern.INSTANCE_DISK_WRITE,

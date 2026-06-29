@@ -54,8 +54,8 @@ class LlmMetricQueryExtractor(
             is ResourceExtraction.Resolved -> {
                 val q = result.query
                 log.info(
-                    "extraction-resolved question=\"{}\" metric={} sort={} topN={} window={} project={} confidence={}",
-                    question, q.metric, q.sort, q.topN, q.window, q.project ?: "(전체)", confidence,
+                    "extraction-resolved question=\"{}\" metric={} sort={} topN={} window={} project={} instanceName={} confidence={}",
+                    question, q.metric, q.sort, q.topN, q.window, q.project ?: "(전체)", q.instanceName ?: "(전체)", confidence,
                 )
             }
             is ResourceExtraction.NeedsClarification ->
@@ -82,6 +82,7 @@ class LlmMetricQueryExtractor(
                 topN = raw.topN.coerceIn(1, 20),
                 window = raw.window.ifBlank { cfg.defaultWindow },
                 project = raw.project?.takeIf { it.isNotBlank() },
+                instanceName = raw.instanceName?.takeIf { it.isNotBlank() },
             )
         )
     }
@@ -94,6 +95,7 @@ class LlmMetricQueryExtractor(
         val topN: Int = 5,
         val window: String = "5m",
         val project: String? = null,
+        val instanceName: String? = null,
         val confidence: Double = 0.0,
     )
 }
