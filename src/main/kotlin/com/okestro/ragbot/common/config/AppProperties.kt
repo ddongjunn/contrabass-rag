@@ -15,6 +15,7 @@ data class AppProperties(
     val guard: Guard = Guard(),
     val slack: Slack = Slack(),
     val router: Router = Router(),
+    val resource: Resource = Resource(),
 ) {
     data class Llm(
         val provider: String = "openai",
@@ -67,4 +68,19 @@ data class AppProperties(
         val minConfidence: Double = 0.5,      // 미만 → CLARIFY 폴백
         val historyTurns: Int = 2,            // 라우터가 LLM에 넘기는 최근 메시지 수(현재 질문 포함)
     )
+
+    data class Resource(
+        val extractionModel: String = "gpt-4o-mini",
+        val temperature: Double = 0.0,
+        val minConfidence: Double = 0.5,      // 미만 → NeedsClarification 폴백
+        val defaultWindow: String = "5m",
+        val defaultTopN: Int = 5,
+        val prometheus: Prometheus = Prometheus(),
+    ) {
+        data class Prometheus(
+            val baseUrl: String = "",         // env PROMETHEUS_URL (R3에서 필수)
+            val connectTimeout: String = "3s",
+            val readTimeout: String = "10s",  // 무거운 rate+조인 쿼리 고려
+        )
+    }
 }

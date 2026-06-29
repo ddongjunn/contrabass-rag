@@ -74,6 +74,16 @@ app:
     temperature: 0.0
     min-confidence: 0.5                        # 미만이면 CLARIFY 폴백
     history-turns: 2                           # 라우터가 LLM에 넘기는 최근 메시지 수(현재 질문 포함)
+  resource:
+    extraction-model: gpt-4o-mini             # 조건추출용 작고 빠른 모델
+    temperature: 0.0
+    min-confidence: 0.5                        # 미만이면 NeedsClarification 폴백
+    default-window: 5m
+    default-top-n: 5
+    prometheus:
+      base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
+      connect-timeout: 3s
+      read-timeout: 10s                        # 무거운 rate+조인 쿼리 타임아웃 고려
 
 # --- 회복탄력성 (Resilience4j 통합) ---
 # OpenAI 임베딩·생성·모더레이션 공통 인스턴스 'openai'. 시간 제한은 spring.http.client.* 로 처리(TimeLimiter 미사용).

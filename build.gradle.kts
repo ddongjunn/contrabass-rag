@@ -63,10 +63,26 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
+// CLI main()이 여러 개라 Spring Boot 플러그인이 자동 탐지 실패 → 명시 지정
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	mainClass.set("com.okestro.ragbot.RagbotApplicationKt")
+}
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+	mainClass.set("com.okestro.ragbot.RagbotApplicationKt")
+}
+
 tasks.register<JavaExec>("routingCli") {
 	group = "application"
 	description = "질문 라우터 수동 확인용 CLI (OPENAI_API_KEY 필요)"
 	mainClass.set("com.okestro.ragbot.routing.interfaces.RoutingCliKt")
+	classpath = sourceSets["main"].runtimeClasspath
+	standardInput = System.`in`
+}
+
+tasks.register<JavaExec>("resourceCli") {
+	group = "application"
+	description = "RESOURCE 경로 수동 확인용 CLI (OPENAI_API_KEY 필요; R3 이후 PROMETHEUS_URL도 필요)"
+	mainClass.set("com.okestro.ragbot.resource.interfaces.ResourceCliKt")
 	classpath = sourceSets["main"].runtimeClasspath
 	standardInput = System.`in`
 }

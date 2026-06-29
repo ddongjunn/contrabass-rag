@@ -67,11 +67,13 @@ cache/         시맨틱 캐시 조회/저장 (이 앱 소유 테이블) — ⏸
 generation/    LLM 답변 생성 (ChatClient) · 프롬프트
 guard/         입력 검증 · 레이트리밋 · 콘텐츠 필터(금칙어 + Moderation)
 slack/         Slack 인그레스 · 응답 게시
+routing/       질문 라우터 (DOC / RESOURCE / CLARIFY 분류) — 완성, 파이프라인 배선 예정
+resource/      인프라 실시간 지표 조회 (Prometheus TopN) — 🚧 개발 예정(Phase R1~R4)
 common/        config · Resilience4j
 ```
 
-> 현재는 M0(스캐폴드) 단계 — `RagbotApplication.kt`만 존재하며 빌드가 통과합니다.
-> 각 모듈은 [`docs/plan.md`](docs/plan.md)의 Phase 1~5에서 추가됩니다.
+> 현재 1차(Phase 0~7) 구현 완료. `routing/`은 완성됐으나 파이프라인 미연결.
+> `resource/`는 [`docs/future/resource-prometheus-path.md`](docs/future/resource-prometheus-path.md)의 Phase R1~R4에서 추가됩니다.
 
 ## 빌드 / 실행
 
@@ -91,19 +93,20 @@ VM 배포(앱+pgvector 컨테이너):
 ```
 
 - 시크릿은 환경변수로 주입: `OPENAI_API_KEY`(Moderation 재사용), `SLACK_BOT_TOKEN`,
-  `SLACK_APP_TOKEN`, DB 접속정보 (`.env.example` 참고)
+  `SLACK_APP_TOKEN`, DB 접속정보, `PROMETHEUS_URL`(RESOURCE 경로 활성 시) (`.env.example` 참고)
 - 튜닝 값(모델·top-k·임계값·테이블명·회복탄력성)은 `application.yml` 한 곳에서 관리
 
 ## 문서
 - [`CLAUDE.md`](./CLAUDE.md) — 코딩 가이드라인 + 프로젝트 불변식
 - [`docs/requirements.md`](docs/requirements.md) — 요구사항·시퀀스·데이터 소유·데이터 계약
 - [`docs/architecture.md`](docs/architecture.md) — 기술스택·패키지 구조·컴포넌트 규약·설정
-- [`docs/plan.md`](docs/plan.md) — Phase별 개발 계획
+- [`docs/plan.md`](docs/plan.md) — Phase별 개발 계획 (1차 Phase 0~7)
+- [`docs/future/resource-prometheus-path.md`](docs/future/resource-prometheus-path.md) — RESOURCE(Prometheus) 경로 개발 계획 (Phase R1~R4)
 
 ## 질문 라우터 (Question Router)
 
-사용자 질문을 `DOC / RESOURCE / BOTH / CLARIFY`로 분류하는 독립 모듈(`com.okestro.ragbot.routing`).
-아직 RAG/리소스 파이프라인에 연결되지 않은 1단계 컴포넌트다.
+사용자 질문을 `DOC / RESOURCE / CLARIFY`로 분류하는 독립 모듈(`com.okestro.ragbot.routing`).
+구현 완료 · 단독 CLI 동작 확인됨. RAG/리소스 파이프라인 배선은 Phase R4에서 진행.
 
 ### 설정 (`application.yml`)
 `app.router.*` — `model`(라우팅 모델), `temperature`, `min-confidence`(미만이면 CLARIFY), `history-turns`(LLM에 넘기는 최근 메시지 수).
