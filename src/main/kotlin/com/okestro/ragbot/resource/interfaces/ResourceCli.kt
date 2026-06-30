@@ -57,6 +57,11 @@ fun main() {
                     println("→ [답변]\n${ResourceAnswerTemplate.build(q, samples)}")
                 }
             }
+            is ResourceExtraction.InventoryResolved -> {
+                val q = result.query
+                val f = q.filters
+                println("→ [INVENTORY] kind=${q.kind}  mode=${q.mode}  status=${f.statusOp} ${f.status ?: "(없음)"}  host=${f.hypervisorHostName ?: "(전체)"}  project=${f.projectId ?: "(전체)"}  createEnable=${f.instanceCreateEnable}")
+            }
         }
     }
 }
