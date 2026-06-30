@@ -84,6 +84,32 @@ app:
       base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
       connect-timeout: 3s
       read-timeout: 10s                        # 무거운 rate+조인 쿼리 타임아웃 고려
+      ssl-verify: false                        # 내부망 자체서명 인증서 대응
+    catalog:
+      INSTANCE_CPU:
+        pattern: RATIO_TOPK
+        raw-metric: libvirt_domain_info_cpu_time_seconds_total
+        unit: "%"
+      INSTANCE_MEMORY:
+        pattern: GAUGE_TOPK
+        raw-metric: libvirt_domain_memory_stats_used_percent
+        unit: "%"
+      INSTANCE_NETWORK_RX:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_interface_stats_receive_bytes_total
+        unit: "B/s"
+      INSTANCE_NETWORK_TX:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_interface_stats_transmit_bytes_total
+        unit: "B/s"
+      INSTANCE_DISK_READ:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_block_stats_read_requests_total
+        unit: "req/s"
+      INSTANCE_DISK_WRITE:
+        pattern: COUNTER_RATE_TOPK
+        raw-metric: libvirt_domain_block_stats_write_requests_total
+        unit: "req/s"
     inventory:                                 # INVENTORY(cb_common, MySQL) 트랙 — 미설정 시 빈 미생성
       enabled: ${RESOURCE_INVENTORY_ENABLED:false}
       db:                                      # cb_common (MySQL)
@@ -100,6 +126,11 @@ app:
 resilience4j:
   retry:
     instances:
+      prometheus:
+        max-attempts: 2
+        wait-duration: 1s
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
       openai:
         max-attempts: 3
         wait-duration: 1s
@@ -110,6 +141,14 @@ resilience4j:
           - org.springframework.web.client.ResourceAccessException
   circuitbreaker:
     instances:
+      prometheus:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        record-exceptions:
+          - org.springframework.web.client.ResourceAccessException
       openai:
         sliding-window-type: COUNT_BASED
         sliding-window-size: 20

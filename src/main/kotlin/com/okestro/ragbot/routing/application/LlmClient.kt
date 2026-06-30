@@ -1,6 +1,6 @@
 package com.okestro.ragbot.routing.application
 
-import com.okestro.ragbot.routing.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage
 
 /**
  * LLM 호출 seam. 구현(OpenAI)을 갈아끼우거나 테스트에서 스텁으로 대체할 수 있다.

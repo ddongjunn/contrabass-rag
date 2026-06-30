@@ -56,16 +56,16 @@
 M4 요청/응답 처리(가드·레이트리밋·**콘텐츠 필터**·**회복탄력성**) → M5 Slack 연동.
 *(M3 시맨틱 캐시는 **고도화로 보류** — 삭제 아님, `plan.md §Phase 4` 참고.)*
 
-**2차 (진행 중):** 질문 라우터(`routing/`) + RESOURCE(Prometheus) 경로(`resource/`).
+**2차 (완료):** 질문 라우터(`routing/`) + RESOURCE(Prometheus) 경로(`resource/`).
 DOC 전용 파이프라인을 인프라 실시간 지표 조회로 확장한다.
 
 | 단계 | 내용 | 상태 |
 | --- | --- | --- |
-| 질문 라우터 | 자연어 → DOC / RESOURCE / CLARIFY 분류 (LLM 1회) | ✅ 완성, 미배선 |
-| RESOURCE R1 | 자연어 → ResourceQuery 조건추출 (LLM strict json_schema) | ✅ 완성 |
-| RESOURCE R2 | Metric Catalog + PromQlBuilder (자연어→PromQL 조립) | 🔲 예정 |
-| RESOURCE R3 | Prometheus HTTP 클라이언트 + 템플릿 답변 | 🔲 예정 |
-| RESOURCE R4 | 라우터 + RESOURCE를 DefaultChatService에 배선 | 🔲 예정 |
+| 질문 라우터 R0 | 자연어(+ 스레드 히스토리) → DOC / RESOURCE / CLARIFY 분류 (LLM 1회) | ✅ 완료 |
+| RESOURCE R1 | 자연어 → ResourceQuery 조건추출 (LLM strict json_schema, instanceName 포함) | ✅ 완료 |
+| RESOURCE R2 | Metric Catalog + PromQlBuilder (자연어→PromQL 조립, 6개 메트릭 패턴) | ✅ 완료 |
+| RESOURCE R3 | Prometheus HTTP 클라이언트 + 템플릿 답변 (TLS 바이패스 + Resilience4j) | ✅ 완료 |
+| RESOURCE R4 | 라우터·RESOURCE·Slack 스레드 히스토리를 DefaultChatService에 배선 | ✅ 완료 |
 
 > 2차 상세 계획: [`phase2/plan.md`](phase2/plan.md)
 

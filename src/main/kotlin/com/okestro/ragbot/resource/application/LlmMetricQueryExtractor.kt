@@ -1,6 +1,7 @@
 package com.okestro.ragbot.resource.application
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.resource.domain.InventoryFilters
 import com.okestro.ragbot.resource.domain.InventoryKind
@@ -10,7 +11,6 @@ import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.routing.application.LlmClient
 import com.okestro.ragbot.routing.application.LlmRequest
-import com.okestro.ragbot.routing.domain.ConversationMessage
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -57,8 +57,8 @@ class LlmMetricQueryExtractor(
             is ResourceExtraction.Resolved -> {
                 val q = result.query
                 log.info(
-                    "extraction-resolved target=METRIC question=\"{}\" metric={} sort={} topN={} window={} project={} confidence={}",
-                    question, q.metric, q.sort, q.topN, q.window, q.project ?: "(전체)", confidence,
+                    "extraction-resolved target=METRIC question=\"{}\" metric={} sort={} topN={} window={} project={} instanceName={} confidence={}",
+                    question, q.metric, q.sort, q.topN, q.window, q.project ?: "(전체)", q.instanceName ?: "(전체)", confidence,
                 )
             }
             is ResourceExtraction.InventoryResolved -> {
@@ -98,6 +98,7 @@ class LlmMetricQueryExtractor(
                 topN = raw.topN.coerceIn(1, 20),
                 window = raw.window.ifBlank { cfg.defaultWindow },
                 project = raw.project?.takeIf { it.isNotBlank() },
+                instanceName = raw.instanceName?.takeIf { it.isNotBlank() },
             )
         )
     }
@@ -132,6 +133,7 @@ class LlmMetricQueryExtractor(
         val sort: String = "DESC",
         val topN: Int = 5,
         val window: String = "5m",
+        val instanceName: String? = null,
         // INVENTORY
         val kind: String = "",
         val mode: String = "LIST",

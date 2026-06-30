@@ -2,7 +2,7 @@ package com.okestro.ragbot.routing.infrastructure
 
 import com.okestro.ragbot.routing.application.LlmClient
 import com.okestro.ragbot.routing.application.LlmRequest
-import com.okestro.ragbot.routing.domain.ConversationMessage.Role
+import com.okestro.ragbot.chat.domain.ConversationMessage.Role
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.ai.chat.client.ChatClient

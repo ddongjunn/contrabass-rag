@@ -35,6 +35,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY 를 .env에 설정하세요}
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
       SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-}
     ports:
       - "8080:8080"
 

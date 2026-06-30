@@ -2,7 +2,7 @@ package com.okestro.ragbot.routing.application
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.okestro.ragbot.common.config.AppProperties
-import com.okestro.ragbot.routing.domain.ConversationMessage
+import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.routing.domain.Route
 import com.okestro.ragbot.routing.domain.RouteDecision
 import com.okestro.ragbot.routing.domain.RoutingPolicy

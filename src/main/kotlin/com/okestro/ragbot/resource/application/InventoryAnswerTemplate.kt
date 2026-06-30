@@ -1,13 +1,13 @@
 package com.okestro.ragbot.resource.application
 
-import com.okestro.ragbot.chat.application.ChatResult
 import com.okestro.ragbot.resource.domain.InventoryFilters
 import com.okestro.ragbot.resource.domain.InventoryKind
 import com.okestro.ragbot.resource.domain.InventoryResult
 
 /**
- * INVENTORY 조회 결과 → 한국어 답변 + 출처(순수 함수, LLM 무호출). 환각 방지(불변식 5):
- * 답변은 cb_common 조회 결과만 근거로 하고, 출처에 대상·적용 필터·건수를 표기한다.
+ * INVENTORY 조회 결과 → 한국어 답변(순수 함수, LLM 무호출). 환각 방지(불변식 5):
+ * 답변은 cb_common 조회 결과만 근거로 하고, 마지막 줄에 출처(대상·적용 필터·건수)를 표기한다.
+ * METRIC의 ResourceAnswerTemplate처럼 단일 문자열을 반환해 ResourceService.Result(answer)로 감싼다.
  */
 object InventoryAnswerTemplate {
 
@@ -18,12 +18,12 @@ object InventoryAnswerTemplate {
         InventoryKind.VOLUME_SNAPSHOT to "볼륨 스냅샷",
     )
 
-    fun render(result: InventoryResult): ChatResult {
+    fun render(result: InventoryResult): String {
         val label = LABEL.getValue(result.kind)
         val filterText = describeFilters(result.appliedFilters)
         val condSuffix = filterText?.let { " (조건: $it)" } ?: ""
 
-        val answer = when {
+        val body = when {
             result.total == 0 ->
                 "조건에 맞는 ${label}을(를) 찾지 못했습니다.$condSuffix"
 
@@ -38,17 +38,13 @@ object InventoryAnswerTemplate {
                         val attrs = row.attrs.entries
                             .filter { it.value != null }
                             .joinToString(", ") { "${it.key}=${it.value}" }
-                        if (attrs.isBlank()) "- $name" else "- $name ($attrs)"
+                        if (attrs.isBlank()) "  - $name" else "  - $name ($attrs)"
                     })
                 }
         }
 
-        val sources = buildList {
-            add("대상: $label")
-            add("필터: ${filterText ?: "(없음)"}")
-            add("건수: ${result.total}건")
-        }
-        return ChatResult(answer = answer, sources = sources)
+        val source = "(출처: 대상=$label, 필터=${filterText ?: "없음"}, 건수=${result.total}건)"
+        return "$body\n$source"
     }
 
     /** 적용된 non-null 필터를 사람이 읽는 문자열로. 없으면 null. */
