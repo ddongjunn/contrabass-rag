@@ -119,4 +119,8 @@ sealed class ResourceExtraction {
 - 2026-06-29: 브랜치 생성, 설계 확정(MySQL·env uuid), DB-1 착수.
 - 2026-06-30: DB-1(추출 합류)·DB-2(MySQL DataSource+INSTANCE 조회) 완료·푸시.
 - 2026-06-30: DB-3 — kind별 SQL 일반화(볼륨/스냅샷)·답변 템플릿·ResourceService 분기 완료, 단위테스트 그린.
-  남은 것: Step 4 실 cb_common 연결 검수(env: DP_COMMON_URL·CB_PROVIDER_UUID) + R4 DefaultChatService 배선(METRIC 트랙과 공유).
+- 2026-06-30: origin/main 머지(METRIC R2~R4 완성본 흡수). 충돌 해결 — main의 ResourceService 인터페이스 채택,
+  INVENTORY 분기를 DefaultResourceService에 통합(ObjectProvider). ConversationMessage→chat.domain.
+  결과: **R4 배선이 사실상 완료** — DefaultChatService가 RESOURCE→ResourceService.handle 호출하므로
+  enabled=true면 INVENTORY가 Slack/REST 파이프라인까지 자동 연결됨.
+  남은 것: **Step 4 실 cb_common 연결 검수**(env: DP_COMMON_URL·DP_COMMON_USER_NAME·DP_COMMON_PASSWORD·CB_PROVIDER_UUID).
