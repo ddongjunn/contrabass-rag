@@ -39,7 +39,7 @@ class PromQlBuilderTest {
 
         assertThat(result).isEqualTo(
             "topk(5, (sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) " +
-                "/ on(domain) libvirt_domain_info_virtual_cpus * 100) " +
+                "/ on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) " +
                 "* on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info)"
         )
     }

@@ -180,3 +180,4 @@ VM 배포 (앱 + pgvector 컨테이너):
 - [`docs/process.md`](docs/process.md) — 단계별 개발·검수 사이클 규약
 - [`docs/phase1/plan.md`](docs/phase1/plan.md) — 1차 개발 계획 Phase 0~7 (완료)
 - [`docs/phase2/plan.md`](docs/phase2/plan.md) — 2차 개발 계획 R0~R4 (완료, 설계도 포함)
+- [`docs/phase2/development-summary.md`](docs/phase2/development-summary.md) — 2차 개발 설명서 + 전체/파일/함수 흐름도
