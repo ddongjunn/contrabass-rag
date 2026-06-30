@@ -91,13 +91,20 @@ sealed class ResourceExtraction {
 
 ## Phase DB-3 — 볼륨/스냅샷 + 답변 템플릿 + ResourceService 분기
 
-- [ ] **Step 1:** `CbCommonInventoryRepository`에 OS_VOLUME/OS_VM_SNAPSHOT/OS_VOLUME_SNAPSHOT 조회 추가(각 화이트리스트 key·필터).
-- [ ] **Step 2:** `InventoryAnswerTemplate`(순수함수): 행/건수 → 한국어 답변 + 출처(대상·적용 필터·건수). LLM 무호출.
-- [ ] **Step 3:** `ResourceService`(오케스트레이터): 추출 → `when` { Resolved(METRIC)→Prometheus 트랙 / InventoryResolved→repository+template / NeedsClarification→되물음 } → `ChatResult`.
-- [ ] **Step 4:** env-gated 통합 스모크(`DP_COMMON_URL`+`OPENAI_API_KEY`) + README INVENTORY 섹션.
-- [ ] **Step 5: 커밋·푸시** `feat(resource): 볼륨·스냅샷 조회 + 답변 템플릿 + ResourceService 분기(DB-3)`
+> 이 브랜치엔 METRIC 답변 인프라(Prometheus/MetricCatalog)·`DefaultChatService` RESOURCE 배선이 아직 없음.
+> 따라서 INVENTORY를 end-to-end로 완성하고, METRIC 분기는 팀의 R2~ 트랙에 연결할 **seam**만 둔다(placeholder).
 
-**DoD:** INVENTORY 4종 대표 질문이 cb_common 근거로 답변+출처. METRIC 트랙 무영향. `./gradlew test` 그린.
+- [x] **Step 1:** `InventorySql.build(query,…)`를 kind별로 일반화 — OS_VM/OS_VM_SNAPSHOT/OS_VOLUME/OS_VOLUME_SNAPSHOT
+  각 화이트리스트 key·적용 필터(host=인스턴스, project=tenant_id|project_id, instanceCreateEnable=볼륨스냅샷).
+  `InventoryRepository.find(query, providerUuid, limit)`로 포트 일반화, `CbCommonInventoryRepository` LIST/COUNT.
+- [x] **Step 2:** `InventoryAnswerTemplate`(순수함수): 행/건수 → 한국어 답변 + 출처(대상·적용 필터·건수). LLM 무호출.
+- [x] **Step 3:** `ResourceService`(오케스트레이터): 추출 → `when` { InventoryResolved→repository+template /
+  NeedsClarification→되물음 / Resolved(METRIC)→METRIC 트랙 seam } → `ChatResult`. (enabled=true 시에만 빈 생성)
+- [ ] **Step 4:** env-gated 통합 스모크(`DP_COMMON_URL`+`CB_PROVIDER_UUID`) — **실 cb_common 연결 검수**(DB-2 잔여 §10과 함께). README INVENTORY 섹션.
+- [x] **Step 5: 커밋·푸시** `feat(resource): 볼륨·스냅샷 조회 + 답변 템플릿 + ResourceService 분기(DB-3)`
+
+**DoD:** INVENTORY 4종 SQL 빌더·답변 템플릿·서비스 분기 단위테스트 그린. METRIC 트랙 회귀 없음. `./gradlew test` 그린.
+(실 cb_common 데이터 검수는 Step 4 — 실연결 env 확보 후.)
 
 ---
 
@@ -110,3 +117,6 @@ sealed class ResourceExtraction {
 
 ## 진행 메모 (브랜치 작업 로그)
 - 2026-06-29: 브랜치 생성, 설계 확정(MySQL·env uuid), DB-1 착수.
+- 2026-06-30: DB-1(추출 합류)·DB-2(MySQL DataSource+INSTANCE 조회) 완료·푸시.
+- 2026-06-30: DB-3 — kind별 SQL 일반화(볼륨/스냅샷)·답변 템플릿·ResourceService 분기 완료, 단위테스트 그린.
+  남은 것: Step 4 실 cb_common 연결 검수(env: DP_COMMON_URL·CB_PROVIDER_UUID) + R4 DefaultChatService 배선(METRIC 트랙과 공유).

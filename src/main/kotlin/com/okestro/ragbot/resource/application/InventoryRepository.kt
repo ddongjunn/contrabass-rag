@@ -1,6 +1,5 @@
 package com.okestro.ragbot.resource.application
 
-import com.okestro.ragbot.resource.domain.InventoryFilters
 import com.okestro.ragbot.resource.domain.InventoryQuery
 import com.okestro.ragbot.resource.domain.InventoryResult
 
@@ -9,10 +8,5 @@ import com.okestro.ragbot.resource.domain.InventoryResult
  * providerUuid는 cm_provider.uuid 범위 한정(불변 컨텍스트), limit은 LIST 상한.
  */
 interface InventoryRepository {
-    fun findInstances(
-        filters: InventoryFilters,
-        mode: InventoryQuery.Mode,
-        providerUuid: String,
-        limit: Int,
-    ): InventoryResult
+    fun find(query: InventoryQuery, providerUuid: String, limit: Int): InventoryResult
 }

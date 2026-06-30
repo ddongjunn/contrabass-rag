@@ -2,8 +2,6 @@ package com.okestro.ragbot.resource.infrastructure
 
 import com.okestro.ragbot.resource.application.InventoryRepository
 import com.okestro.ragbot.resource.application.InventorySql
-import com.okestro.ragbot.resource.domain.InventoryFilters
-import com.okestro.ragbot.resource.domain.InventoryKind
 import com.okestro.ragbot.resource.domain.InventoryQuery
 import com.okestro.ragbot.resource.domain.InventoryResult
 import com.okestro.ragbot.resource.domain.InventoryRow
@@ -22,30 +20,26 @@ class CbCommonInventoryRepository(
     @Qualifier("cbCommonJdbcTemplate") private val jdbc: JdbcTemplate,
 ) : InventoryRepository {
 
-    override fun findInstances(
-        filters: InventoryFilters,
-        mode: InventoryQuery.Mode,
-        providerUuid: String,
-        limit: Int,
-    ): InventoryResult {
-        val built = InventorySql.instances(filters, mode, providerUuid, limit)
+    override fun find(query: InventoryQuery, providerUuid: String, limit: Int): InventoryResult {
+        val built = InventorySql.build(query, providerUuid, limit)
         val params = built.params.toTypedArray()
 
-        return when (mode) {
+        return when (query.mode) {
             InventoryQuery.Mode.COUNT -> {
                 val total = jdbc.queryForObject(built.sql, Int::class.java, *params) ?: 0
-                InventoryResult(InventoryKind.INSTANCE, emptyList(), total, filters)
+                InventoryResult(query.kind, emptyList(), total, query.filters)
             }
 
             InventoryQuery.Mode.LIST -> {
+                val keys = InventorySql.keysOf(query.kind)
                 val rows = jdbc.query(built.sql, { rs, _ ->
                     InventoryRow(
                         uuid = rs.getString("uuid"),
                         name = rs.getString("resource_name"),
-                        attrs = InventorySql.INSTANCE_KEYS.associateWith { rs.getString(it) },
+                        attrs = keys.associateWith { rs.getString(it) },
                     )
                 }, *params)
-                InventoryResult(InventoryKind.INSTANCE, rows, rows.size, filters)
+                InventoryResult(query.kind, rows, rows.size, query.filters)
             }
         }
     }
