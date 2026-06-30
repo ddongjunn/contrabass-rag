@@ -84,6 +84,15 @@ app:
       base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
       connect-timeout: 3s
       read-timeout: 10s                        # 무거운 rate+조인 쿼리 타임아웃 고려
+    inventory:                                 # INVENTORY(cb_common, MySQL) 트랙 — 미설정 시 빈 미생성
+      enabled: ${RESOURCE_INVENTORY_ENABLED:false}
+      db:                                      # cb_common (MySQL)
+        url: ${DP_COMMON_URL:}
+        username: ${DP_COMMON_USER_NAME:}
+        password: ${DP_COMMON_PASSWORD:}
+      provider-uuid: ${CB_PROVIDER_UUID:}      # cb_provider(url~'https://10.255.%') 단일 공급자 uuid를 1회 확인해 주입
+      max-rows: 50
+      query-timeout-ms: 3000
 
 # --- 회복탄력성 (Resilience4j 통합) ---
 # OpenAI 임베딩·생성·모더레이션 공통 인스턴스 'openai'. 시간 제한은 spring.http.client.* 로 처리(TimeLimiter 미사용).

@@ -32,6 +32,9 @@ dependencies {
 	implementation("org.springframework.ai:spring-ai-starter-model-openai")
 	implementation("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
 
+	// --- cb_common(MySQL) — INVENTORY 조회용 2차 DataSource (app.resource.inventory.enabled 시에만 사용) ---
+	runtimeOnly("com.mysql:mysql-connector-j")
+
 	// --- (M4) 회복탄력성 — Resilience4j 통합(Retry/CircuitBreaker + 사용자별 RateLimiter) ---
 	implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
 	implementation("org.springframework.boot:spring-boot-starter-aop")   // resilience4j 애노테이션(@Aspect) 활성화에 필요

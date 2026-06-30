@@ -73,17 +73,17 @@ sealed class ResourceExtraction {
   `resource/infrastructure/CbCommonInventoryRepository.kt`(OS_VM 피벗 SQL)
 - 수정: `AppProperties.Resource`(+Inventory), `application.yml`(app.resource.inventory.*), documents DataSource `@Primary` 보장
 
-- [ ] **Step 1: MySQL 드라이버 + 2차 DataSource**
+- [x] **Step 1: MySQL 드라이버 + 2차 DataSource**
   - `CbCommonDataSourceConfig`: `app.resource.inventory.db.*`로 DataSource, queryTimeout 적용 JdbcTemplate.
     `@ConditionalOnProperty(app.resource.inventory.enabled=true)`로 미설정 시 빈 미생성(로컬/CI 부팅 보존).
-  - 기존 documents DataSource `@Primary` 확인(자동구성 깨지면 명시 빈).
+  - 활성화 시 documents(PG) DataSource·JdbcTemplate을 `@Primary`로 명시(자동구성 백오프 대비) → pgvector·문서검색 무영향.
 
-- [ ] **Step 2: INSTANCE 조회(TDD — SQL 빌더 순수 단위)**
+- [x] **Step 2: INSTANCE 조회(SQL 빌더 순수 단위)**
   - `InventoryRow/InventoryResult`, `InventoryRepository.findInstances(filters, mode, providerUuid, limit)`.
   - `CbCommonInventoryRepository`: spec §6 OS_VM 피벗 SQL(MySQL 백틱), `cm_provider.uuid=?` + 필터 `?` 바인딩, LIMIT=max-rows, COUNT 모드.
-  - SQL/파라미터 매핑은 빌더 함수로 분리해 **순수 단위테스트**(EQ/NEQ/host/project/COUNT, null 무력화). 실 DB는 DB-3 통합(env-gated).
+  - SQL/파라미터 매핑은 `InventorySql`(순수 object)로 분리해 **단위테스트**(EQ/NEQ/host/project/COUNT, null 무력화) 그린. 실 DB는 DB-3 통합(env-gated).
 
-- [ ] **Step 3: 커밋·푸시** `feat(resource): cb_common MySQL DataSource + 인스턴스 EAV 조회(DB-2)`
+- [x] **Step 3: 커밋·푸시** `feat(resource): cb_common MySQL DataSource + 인스턴스 EAV 조회(DB-2)`
 
 **DoD:** SQL 빌더 단위테스트 그린. (사용자 실연결) "ACTIVE 아닌 인스턴스"·"host-01 개수"가 cb_common 실데이터로 동작.
 

@@ -76,11 +76,31 @@ data class AppProperties(
         val defaultWindow: String = "5m",
         val defaultTopN: Int = 5,
         val prometheus: Prometheus = Prometheus(),
+        val inventory: Inventory = Inventory(),
     ) {
         data class Prometheus(
             val baseUrl: String = "",         // env PROMETHEUS_URL (R3에서 필수)
             val connectTimeout: String = "3s",
             val readTimeout: String = "10s",  // 무거운 rate+조인 쿼리 고려
         )
+
+        /**
+         * INVENTORY(cb_common DB) 트랙 설정. enabled=false면 2차 DataSource/리포지토리 빈 미생성(로컬/CI 부팅 보존).
+         * 접속정보·provider uuid는 전부 환경변수(시크릿 평문 금지).
+         */
+        data class Inventory(
+            val enabled: Boolean = false,
+            val db: Db = Db(),
+            val providerUuid: String = "",    // env CB_PROVIDER_UUID — cm_provider.uuid 범위 한정(불변 컨텍스트)
+            val maxRows: Int = 50,            // LIST LIMIT 상한
+            val queryTimeoutMs: Int = 3000,
+        ) {
+            data class Db(
+                val url: String = "",         // env DP_COMMON_URL (예: jdbc:mysql://10.255.72.176:30007/cb_common)
+                val username: String = "",     // env DP_COMMON_USER_NAME
+                val password: String = "",     // env DP_COMMON_PASSWORD
+                val driverClassName: String = "com.mysql.cj.jdbc.Driver",
+            )
+        }
     }
 }
