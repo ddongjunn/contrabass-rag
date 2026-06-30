@@ -16,7 +16,7 @@
 | R0 질문 라우터 | ✅ 완료 | `routing/` 모듈 완성. 단, 파이프라인 미연결 |
 | R1 조건 추출 | ✅ 완료 | `resource/` 모듈 골격. CLI로 수동 테스트 가능 |
 | R2 카탈로그·PromQL | ✅ 완료 | Metric Catalog + PromQlBuilder + instanceName 필터 |
-| R3 Prometheus 클라이언트 | 🔲 예정 | |
+| R3 Prometheus 클라이언트 | ✅ 완료 | |
 | R4 파이프라인 배선 | ✅ 완료 | 라우터·RESOURCE·Slack 히스토리 모두 연결 |
 
 ### 바로 시작하려면
