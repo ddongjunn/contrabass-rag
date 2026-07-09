@@ -18,12 +18,16 @@
 
 프로토타입은 **목업 데이터**(연동 없음). 실제 도메인 형태(`MetricSample`, `InventoryResult`)에만 맞춤.
 
-## 범위 (Phase)
+## 범위 (Phase) — 2026-07-09 결정 반영
 
-- **Phase 1(이번)**: `metric_rank`(TopN 랭킹) + `inventory_count`(카운트) + empty/error 상태.
-  기존 조회 결과 재표현만 → 라우팅/집계 변경 0.
-- **Phase 2**: `resource_dashboard`(요약). 새 요약 라우트 + 크로스소스(Prometheus+cb_common) 집계 필요.
-- **Backlog**: 확장 위젯 후보(임계배너·프로젝트별 바·상태 도넛·쿼터 게이지·스파크라인·표) — 반영 미결정.
+- **Phase 1a(재표현·규칙, 먼저)**: `metric_rank` + `inventory_count` + **연관질문 칩(`followups`)** + empty/error.
+  기존 조회 결과 재사용/규칙 생성 → 집계 변경 0.
+- **Phase 1b(신규 집계)**: `metric_rank` 행 스파크라인 · `project_usage_bar` · `status_donut` ·
+  `quota_gauge` · `threshold_banner`. **새 쿼리/소스 필요**(§5.4). ⚠️ 이로써 Phase 1이 "재표현만"에서 확장됨.
+- **Phase 2**: `resource_dashboard`(요약). 새 요약 라우트 + 크로스소스(Prometheus+cb_common) 집계.
+- **제외**: `inventory_table`(LIST 표), heatmap, 실시간 time-range 셀렉터.
+
+> 상세 티어·데이터 소스는 설계 문서 §3·§5.4 참고.
 
 ## 먼저 얼릴 두 계약 (1일차)
 
@@ -42,7 +46,8 @@
 
 ## 이 기능의 불변식 (루트 불변식 위에 추가)
 
-1. **위젯은 LLM 0회.** 기존 조회 결과(`MetricSample`/`InventoryResult`)의 재표현일 뿐. (루트 불변식 3·4와 정합)
+1. **위젯·연관질문 칩은 LLM 0회.** 집계는 PromQL/SQL, 위젯은 순수 변환, 칩은 규칙 생성. (루트 불변식 3·4와 정합)
+   단, Phase 1b는 새 집계 쿼리를 **추가**한다("재표현만" 아님 — §5.4).
 2. **`answer`(평문)는 항상 함께 반환.** 위젯은 시각적 보강. 평문이 진실 원본이자 Slack·스크린리더 폴백.
 3. **하위호환**: `ChatResponse.widgets` 기본 빈 배열. Slack은 widgets 무시, 기존 클라이언트 무영향.
 4. **포맷 단일화**: 평문(Slack)과 위젯(웹)이 `MetricValueFormatter` **공유** → 숫자 드리프트 금지.
@@ -50,8 +55,12 @@
 6. **XSS 금지**: 위젯 값(인스턴스명 등 DB/label 출처)은 `textContent`/DOM으로만 삽입. `innerHTML` 문자열 조립 금지(프로토타입은 예외).
 7. **연관질문 칩**: LLM 아님. 이미 추출한 `ResourceQuery`(metric/project/instance) + top 결과로 규칙 생성.
 
-## 미결정 (다음 논의)
+## 결정 완료 / 미결정
 
-- [ ] 확장 위젯 후보 중 무엇을 반영할지 (설계 §8)
-- [ ] 연관질문 칩을 Phase 1 / Phase 2 중 어디에 넣을지 (재료는 이미 있어 P1도 가능)
+**완료 (2026-07-09)**
+- [x] 확장 위젯 선정: 스파크라인·프로젝트별 바·상태 도넛·쿼터 게이지·임계 배너 채택, `inventory_table` 제외
+- [x] 연관질문 칩 → **Phase 1**(규칙 생성, LLM 0회)
+
+**미결정**
+- [ ] `quota_gauge` 데이터 소스 확인(cb_common에 쿼터가 있는지 — BE-B 스파이크)
 - [ ] Phase 2 `resource_dashboard`를 별도 스펙/계획으로 분리할지
