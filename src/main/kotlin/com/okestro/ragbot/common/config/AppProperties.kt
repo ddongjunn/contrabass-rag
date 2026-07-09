@@ -78,7 +78,14 @@ data class AppProperties(
         val prometheus: Prometheus = Prometheus(),
         val catalog: Map<String, CatalogEntryConfig> = emptyMap(),
         val inventory: Inventory = Inventory(),
+        val severity: Severity = Severity(),
     ) {
+        /** 위젯 severity 임계치(%). 하드코딩 금지 — WidgetBuilder가 주입받아 색상 인코딩(설계 §5.1). */
+        data class Severity(
+            val warnPercent: Int = 70,
+            val critPercent: Int = 85,
+        )
+
         data class Prometheus(
             val baseUrl: String = "",         // env PROMETHEUS_URL (R3에서 필수)
             val connectTimeout: String = "3s",

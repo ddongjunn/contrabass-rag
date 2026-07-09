@@ -25,25 +25,11 @@ object ResourceAnswerTemplate {
 
         val header = "${label}이 ${direction} 인스턴스${projectPart}${instancePart}:\n"
         val lines = samples.mapIndexed { i, s ->
-            val formatted = formatValue(s.value, s.unit)
+            val formatted = MetricValueFormatter.format(s.value, s.unit)
             val project = s.projectName?.let { " [$it]" } ?: ""
             "  ${i + 1}. ${s.instanceName}$project — $formatted"
         }
 
         return header + lines.joinToString("\n")
-    }
-
-    private fun formatValue(value: Double, unit: String): String = when (unit) {
-        "%" -> "${"%.1f".format(value)}%"
-        "B/s" -> formatBytes(value)
-        "req/s" -> "${"%.1f".format(value)} req/s"
-        else -> "${"%.2f".format(value)} $unit"
-    }
-
-    private fun formatBytes(bytesPerSec: Double): String = when {
-        bytesPerSec >= 1_073_741_824 -> "${"%.2f".format(bytesPerSec / 1_073_741_824)} GB/s"
-        bytesPerSec >= 1_048_576     -> "${"%.2f".format(bytesPerSec / 1_048_576)} MB/s"
-        bytesPerSec >= 1_024         -> "${"%.1f".format(bytesPerSec / 1_024)} KB/s"
-        else                         -> "${"%.0f".format(bytesPerSec)} B/s"
     }
 }

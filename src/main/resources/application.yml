@@ -80,6 +80,9 @@ app:
     min-confidence: 0.5                        # 미만이면 NeedsClarification 폴백
     default-window: 5m
     default-top-n: 5
+    severity:                                   # 위젯 색상 임계치(%) — 프론트는 서버가 준 severity만 신뢰
+      warn-percent: 70
+      crit-percent: 85
     prometheus:
       base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
       connect-timeout: 3s
