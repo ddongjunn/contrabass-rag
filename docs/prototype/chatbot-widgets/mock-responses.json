@@ -1,0 +1,173 @@
+{
+  "_readme": "POST /api/chat 목업 응답 모음. FE 선개발용 fixture. 키=시나리오. 타입 규격은 ./widget-contract.d.ts.",
+
+  "cpu_rank": {
+    "answer": "CPU 사용률이 높은 인스턴스 (프로젝트: service-prod):\n  1. web-prod-07 [service-prod] — 91.2%\n  2. api-prod-02 [service-prod] — 87.0%\n  3. batch-11 [data-platform] — 73.4%\n  4. cache-03 [service-prod] — 61.9%",
+    "sources": [],
+    "widgets": [
+      {
+        "type": "metric_rank",
+        "title": "CPU 사용률이 높은 인스턴스",
+        "unit": "%",
+        "window": "5m",
+        "promql": "topk(5, (sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) / on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) * on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info{project_name=\"service-prod\"})",
+        "empty": false,
+        "rows": [
+          { "instanceName": "web-prod-07", "projectName": "service-prod", "value": 91.2, "display": "91.2%", "severity": "CRIT" },
+          { "instanceName": "api-prod-02", "projectName": "service-prod", "value": 87.0, "display": "87.0%", "severity": "CRIT" },
+          { "instanceName": "batch-11", "projectName": "data-platform", "value": 73.4, "display": "73.4%", "severity": "WARN" },
+          { "instanceName": "cache-03", "projectName": "service-prod", "value": 61.9, "display": "61.9%", "severity": "GOOD" }
+        ]
+      }
+    ],
+    "followups": ["web-prod-07 메모리는?", "네트워크 송신량 TopN", "data-platform 만 보기"]
+  },
+
+  "cpu_rank_with_spark": {
+    "answer": "CPU 사용률이 높은 인스턴스:\n  1. web-prod-07 — 91.2%\n  2. api-prod-02 — 87.0%",
+    "sources": [],
+    "widgets": [
+      {
+        "type": "metric_rank",
+        "title": "CPU 사용률이 높은 인스턴스",
+        "unit": "%",
+        "window": "5m",
+        "promql": "topk(5, ...)",
+        "empty": false,
+        "rows": [
+          { "instanceName": "web-prod-07", "projectName": "service-prod", "value": 91.2, "display": "91.2%", "severity": "CRIT", "spark": [58, 61, 60, 67, 72, 80, 85, 91] },
+          { "instanceName": "api-prod-02", "projectName": "service-prod", "value": 87.0, "display": "87.0%", "severity": "CRIT", "spark": [70, 72, 71, 75, 79, 83, 86, 87] }
+        ]
+      }
+    ],
+    "followups": ["web-prod-07 메모리는?", "네트워크 송신량 TopN"]
+  },
+
+  "network_rank_no_severity": {
+    "answer": "네트워크 송신량이 높은 인스턴스:\n  1. gw-01 — 410.25 MB/s\n  2. proxy-02 — 233.10 MB/s",
+    "sources": [],
+    "widgets": [
+      {
+        "type": "metric_rank",
+        "title": "네트워크 송신량이 높은 인스턴스",
+        "unit": "B/s",
+        "window": "5m",
+        "promql": "topk(5, sum by(domain)(rate(libvirt_domain_interface_stats_transmit_bytes_total[5m])) * on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info)",
+        "empty": false,
+        "rows": [
+          { "instanceName": "gw-01", "projectName": "network", "value": 430182400, "display": "410.25 MB/s", "severity": null },
+          { "instanceName": "proxy-02", "projectName": "network", "value": 244401152, "display": "233.10 MB/s", "severity": null }
+        ]
+      }
+    ],
+    "followups": ["gw-01 CPU는?", "네트워크 수신량 TopN"]
+  },
+
+  "volume_count": {
+    "answer": "볼륨 342건입니다 (조건: status=available):",
+    "sources": [],
+    "widgets": [
+      { "type": "inventory_count", "label": "볼륨", "total": 342, "condition": "상태=available · 프로젝트 전체" }
+    ],
+    "followups": ["스냅샷은 몇 개야?", "인스턴스는 몇 개야?"]
+  },
+
+  "threshold_banner": {
+    "answer": "CPU 임계(85%)를 초과한 노드가 2대 있습니다: web-prod-07, api-prod-02",
+    "sources": [],
+    "widgets": [
+      { "type": "threshold_banner", "level": "CRIT", "title": "임계 초과 노드 2대", "detail": "CPU 85%↑ : web-prod-07, api-prod-02", "count": 2 }
+    ],
+    "followups": ["web-prod-07 상세", "메모리 임계 초과 노드"]
+  },
+
+  "quota_gauge": {
+    "answer": "service-prod 프로젝트 쿼터 사용 현황:\n  vCPU 820 / 1000 (82%)\n  메모리 41 GB / 50 GB (82%)\n  디스크 6100 / 10000 GB (61%)",
+    "sources": [],
+    "widgets": [
+      {
+        "type": "quota_gauge",
+        "items": [
+          { "resource": "vCPU", "used": 820, "quota": 1000, "ratio": 0.82, "display": "820 / 1000", "severity": "WARN" },
+          { "resource": "메모리", "used": 41984, "quota": 51200, "ratio": 0.82, "display": "41 GB / 50 GB", "severity": "WARN" },
+          { "resource": "디스크", "used": 6100, "quota": 10000, "ratio": 0.61, "display": "6100 / 10000 GB", "severity": "GOOD" }
+        ]
+      }
+    ],
+    "followups": ["AUTOTEST 쿼터는?", "vCPU 가장 많이 쓰는 프로젝트"]
+  },
+
+  "quota_gauge_unlimited": {
+    "answer": "AUTOTEST 프로젝트 쿼터 사용 현황:\n  vCPU 8 / 무제한\n  메모리 8 GB / 무제한",
+    "sources": [],
+    "widgets": [
+      {
+        "type": "quota_gauge",
+        "items": [
+          { "resource": "vCPU", "used": 8, "quota": null, "ratio": null, "display": "8 / 무제한", "severity": null },
+          { "resource": "메모리", "used": 8192, "quota": null, "ratio": null, "display": "8 GB / 무제한", "severity": null }
+        ]
+      }
+    ],
+    "followups": ["service-prod 쿼터는?"]
+  },
+
+  "status_donut": {
+    "answer": "인스턴스 상태 분포 (총 140대): ACTIVE 128, SHUTOFF 9, ERROR 3",
+    "sources": [],
+    "widgets": [
+      {
+        "type": "status_donut",
+        "label": "인스턴스",
+        "total": 140,
+        "segments": [
+          { "status": "ACTIVE", "count": 128, "level": "good" },
+          { "status": "SHUTOFF", "count": 9, "level": "muted" },
+          { "status": "ERROR", "count": 3, "level": "crit" }
+        ]
+      }
+    ],
+    "followups": ["ERROR 인스턴스 목록", "볼륨 상태 분포"]
+  },
+
+  "project_usage_bar": {
+    "answer": "프로젝트별 vCPU 쿼터 사용률:\n  service-prod 82%\n  data-platform 55%\n  AUTOTEST 무제한",
+    "sources": [],
+    "widgets": [
+      {
+        "type": "project_usage_bar",
+        "metric": "vCPU",
+        "unit": "%",
+        "rows": [
+          { "projectName": "service-prod", "value": 82.0, "display": "82%", "severity": "WARN" },
+          { "projectName": "data-platform", "value": 55.0, "display": "55%", "severity": "GOOD" },
+          { "projectName": "AUTOTEST", "value": null, "display": "무제한", "severity": null }
+        ]
+      }
+    ],
+    "followups": ["메모리 쿼터 사용률", "service-prod 상세 쿼터"]
+  },
+
+  "empty_result": {
+    "answer": "현재 조건에 해당하는 인스턴스를 찾을 수 없습니다.",
+    "sources": [],
+    "widgets": [
+      { "type": "metric_rank", "title": "CPU 사용률이 높은 인스턴스", "unit": "%", "window": "5m", "promql": "topk(5, ...)", "empty": true, "rows": [] }
+    ],
+    "followups": []
+  },
+
+  "fallback_no_widget": {
+    "answer": "지표를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    "sources": [],
+    "widgets": [],
+    "followups": []
+  },
+
+  "doc_answer": {
+    "answer": "해당 API는 Bearer 토큰을 Authorization 헤더에 넣어 호출합니다. ...",
+    "sources": ["API 가이드 #3 (p.12)", "인증 문서 #1"],
+    "widgets": [],
+    "followups": []
+  }
+}
