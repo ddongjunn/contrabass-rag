@@ -74,7 +74,7 @@ private fun queryPrometheus(
 ): List<MetricSample> {
     return try {
         val body = client.get()
-            .uri { it.path("/api/v1/query").queryParam("query", promql).build() }
+            .uri { it.path("/api/v1/query").queryParam("query", "{q}").build(promql) }
             .retrieve()
             .body(String::class.java) ?: return emptyList()
 
