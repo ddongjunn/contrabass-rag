@@ -100,6 +100,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 **2차 POC — 질문 라우터 + RESOURCE(Prometheus) 경로 [진행 중]**
 - [`docs/phase2/plan.md`](docs/phase2/plan.md) — R0(라우터 ✅)~R4 개발 계획·DoD·설계도
 
+**집계 시각화(위젯) 개선안 [설계 완료]**
+- [`docs/prototype/chatbot-widgets/CLAUDE.md`](docs/prototype/chatbot-widgets/CLAUDE.md) — 작업자 진입점(스펙·프로토타입·RnR·계약·미결정)
+
 ## 문서 업데이트 규칙
 
 **계획이 추가·변경될 때마다 아래 문서를 함께 업데이트한다. 코드만 바꾸고 문서를 빠뜨리지 않는다.**
