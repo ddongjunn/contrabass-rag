@@ -41,7 +41,8 @@ class HttpPrometheusClient(
         val start = System.nanoTime()
 
         val body = restClient.get()
-            .uri { it.path("/api/v1/query").queryParam("query", promql).build() }
+            // promql의 `{label="v"}` 중괄호가 URI 템플릿 변수로 오해되지 않도록 {q} 플레이스홀더로 확장·인코딩
+            .uri { it.path("/api/v1/query").queryParam("query", "{q}").build(promql) }
             .retrieve()
             .body(String::class.java)
             ?: return emptyList()
