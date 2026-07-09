@@ -60,7 +60,10 @@ object WidgetBuilder {
                 value = s.value,
                 display = MetricValueFormatter.format(s.value, s.unit),
                 severity = severityForPercent(s.value, s.unit, warnPercent, critPercent),
-                // TODO(new-dev): 1b 스파크라인 — Prometheus range 쿼리(/api/v1/query_range)로 행별 시계열을 채운다. 설계 §5.4
+                // TODO(new-dev): 1b 스파크라인. 실 경로에선 null 유지가 정답(실값 위 가짜 추세선 = 환각). 채우려면:
+                //   1) PrometheusClient에 queryRange(promql, window="5m", step="30s") 추가
+                //      → /api/v1/query_range (POST form: query,start,end,step). 참조 백엔드 getRange 패턴 검증됨.
+                //   2) 행(instance)별 시계열 List<Double>을 이 spark에 부착. topN(5)만, Resilience4j 'prometheus' 재사용.
                 spark = null,
             )
         }
@@ -113,7 +116,15 @@ object WidgetBuilder {
     // ── MOCK: 신규 집계 미연동(1b) — new-dev가 채우는 seam(설계 §5.4) ───────────
 
     fun quotaGauge(warnPercent: Int, critPercent: Int): QuotaGaugeWidget =
-        // TODO(new-dev): replace mock with real query — 쿼터 데이터 소스 확인 후 연결. 설계 §5.4
+        // TODO(new-dev): 아래 목업을 실제 쿼터로 교체. (quotaItem 변환 규칙은 이미 완성 — 그대로 재사용)
+        //  ── 소스(라이브 검증 2026-07-09): Prometheus openstack-exporter. cb_common 아님.
+        //       vCPU:   openstack_nova_limits_vcpus_max        / openstack_nova_limits_vcpus_used
+        //       메모리: openstack_nova_limits_memory_max       / openstack_nova_limits_memory_used   (단위 MB, 예 51200=50GB)
+        //       디스크: openstack_cinder_limits_volume_max_gb  / openstack_cinder_limits_volume_used_gb
+        //  ── 라벨: tenant(프로젝트 이름, 그대로 표기) + tenant_id(uuid). 이름 조인 불필요.
+        //  ── 무제한: max=-1 실관측 → quotaItem(max<0)이 quota/ratio/severity=null, "N / 무제한" 처리(그대로 사용).
+        //  ── 구현: 대상 tenant의 6개 메트릭을 instant 조회(HttpPrometheusClient) → resource별로 quotaItem(name, used, max, warn, crit).
+        //  ── 트리거: "쿼터/사용량" 의도 필요(현재 추출기에 없음) — R1 추출기 확장 또는 요약 경로에서 호출. 설계 §5.4
         QuotaGaugeWidget(
             items = listOf(
                 quotaItem("vCPU", 820.0, 1000.0, warnPercent, critPercent),
@@ -122,7 +133,11 @@ object WidgetBuilder {
         )
 
     fun statusDonut(): StatusDonutWidget =
-        // TODO(new-dev): replace mock with real query — cb_common GROUP BY status. 설계 §5.4
+        // TODO(new-dev): 아래 목업을 실제 집계로 교체.
+        //  ── 검증된 쿼리(라이브 2026-07-09): count by(status)(openstack_nova_server_status)
+        //     → status 라벨별 개수. 실측: ACTIVE=116, SHUTOFF=2, ERROR=1. (cb_common GROUP BY 대신 이게 더 단순 — DB 불필요)
+        //  ── 구현: 결과 Map<status,count>를 받아 segment로 매핑. total=합. level: ACTIVE→"good", SHUTOFF/PAUSED→"muted", ERROR→"crit".
+        //  ── 트리거: "상태 분포" 의도 필요(현재 라우터/추출엔 없음) — R1 추출기에 추가 또는 요약 경로에서 호출. 설계 §5.4·Phase2
         StatusDonutWidget(
             label = "인스턴스",
             total = 140,
@@ -134,7 +149,12 @@ object WidgetBuilder {
         )
 
     fun thresholdBanner(): ThresholdBannerWidget =
-        // TODO(new-dev): replace mock with real query — PromQL count(metric>threshold) + 초과 인스턴스명. 설계 §5.4
+        // TODO(new-dev): 아래 목업을 실제 임계 집계로 교체. (참조 백엔드엔 이런 쿼리 없음 — 우리가 자작)
+        //  ── 쿼리: 우리가 이미 쓰는 CPU 사용률 식(ratio_topk 내부)에 임계 비교.
+        //     count( (sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) / on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) > {crit} )
+        //     → 초과 대수(count). 초과 인스턴스명은 임계 필터한 같은 식의 결과 라벨(instance_name)에서 추출.
+        //  ── 임계값 {crit} = app.resource.severity.crit-percent 재사용(하드코딩 금지, 불변식 7).
+        //  ── level: count>0 → CRIT. detail = "CPU {crit}%↑ : name1, name2".
         ThresholdBannerWidget(
             level = Severity.CRIT,
             title = "임계 초과 노드 2대",
@@ -143,7 +163,12 @@ object WidgetBuilder {
         )
 
     fun projectUsageBar(warnPercent: Int, critPercent: Int): ProjectUsageBarWidget =
-        // TODO(new-dev): replace mock with real query — PromQL avg by(project). 설계 §5.4
+        // TODO(new-dev): 아래 목업을 실제 집계로 교체.
+        //  ── 주의(설계 정정): "프로젝트별 실사용률" 단일 소스는 없음(참조·라이브 모두 확인).
+        //     → 프로젝트별 "쿼터 사용률"(used/max)로 재정의. quotaGauge와 같은 openstack_*_limits_* 재사용.
+        //  ── 구현: tenant별 (nova_limits_vcpus_used / _max)*100 → ProjectUsageRow(projectName=tenant, value, ...).
+        //     무제한(max=-1) 행: value=null, severity=null, display "무제한".
+        //  ── severity: severityForPercent(value, "%", warn, crit) 그대로 재사용.
         ProjectUsageBarWidget(
             metric = "CPU",
             unit = "%",
