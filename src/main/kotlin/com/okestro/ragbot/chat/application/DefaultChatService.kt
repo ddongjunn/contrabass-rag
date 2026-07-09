@@ -83,6 +83,6 @@ class DefaultChatService(
         val result = resourceService.handle(history)
         val callType = if (result.needsClarification) "clarify" else "answered"
         log.info("chat resource-{} userId={} routingCalls=1 extractionCalls=1 llmCalls=0", callType, userId)
-        return ChatResult(answer = result.answer, sources = emptyList())
+        return ChatResult(answer = result.answer, sources = emptyList(), widgets = result.widgets, followups = result.followups)
     }
 }

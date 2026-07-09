@@ -3,9 +3,11 @@ package com.okestro.ragbot.resource.interfaces
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.okestro.ragbot.common.config.AppProperties
+import com.okestro.ragbot.resource.application.FollowupBuilder
 import com.okestro.ragbot.resource.application.LlmMetricQueryExtractor
 import com.okestro.ragbot.resource.application.MetricCatalog
 import com.okestro.ragbot.resource.application.ResourceAnswerTemplate
+import com.okestro.ragbot.resource.application.WidgetBuilder
 import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.ResourceExtraction
@@ -54,7 +56,17 @@ fun main() {
 
                 if (restClient != null) {
                     val samples = queryPrometheus(restClient, objectMapper, promql, entry.unit)
-                    println("→ [답변]\n${ResourceAnswerTemplate.build(q, samples)}")
+                    val answer = ResourceAnswerTemplate.build(q, samples)
+                    println("→ [답변]\n$answer")
+                    // POC: 같은 조회 결과로 위젯 JSON까지(=FE가 받는 형태). WidgetBuilder는 순수 변환, LLM 0회.
+                    val widget = WidgetBuilder.metricRank(q, samples, promql, entry.unit, 70, 85)
+                    val followups = FollowupBuilder.forMetric(q, samples)
+                    val payload = linkedMapOf(
+                        "answer" to answer,
+                        "widgets" to listOf(widget),
+                        "followups" to followups,
+                    )
+                    println("→ [위젯 JSON]\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload)}")
                 }
             }
             is ResourceExtraction.InventoryResolved -> {

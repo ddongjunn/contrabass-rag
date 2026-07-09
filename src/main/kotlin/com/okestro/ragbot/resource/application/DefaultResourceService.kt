@@ -29,7 +29,10 @@ class DefaultResourceService(
 
                 val samples = prometheus.query(promql, entry.unit)
                 val answer = ResourceAnswerTemplate.build(query, samples)
-                ResourceService.Result(answer)
+                val sev = properties.resource.severity
+                val widget = WidgetBuilder.metricRank(query, samples, promql, entry.unit, sev.warnPercent, sev.critPercent)
+                val followups = FollowupBuilder.forMetric(query, samples)
+                ResourceService.Result(answer, widgets = listOf(widget), followups = followups)
             }
             is ResourceExtraction.InventoryResolved -> {
                 // INVENTORY(cb_common) 트랙. enabled=false면 리포지토리 빈이 없으므로 안내 후 종료.
@@ -41,7 +44,13 @@ class DefaultResourceService(
                 val inv = properties.resource.inventory
                 val result = repository.find(extraction.query, inv.providerUuid, inv.maxRows)
                 log.info("resource-inventory kind={} mode={} total={}", result.kind, extraction.query.mode, result.total)
-                ResourceService.Result(InventoryAnswerTemplate.render(result))
+                val widget = WidgetBuilder.inventoryCount(result)
+                val followups = FollowupBuilder.forInventory(result)
+                ResourceService.Result(
+                    InventoryAnswerTemplate.render(result),
+                    widgets = listOf(widget),
+                    followups = followups,
+                )
             }
         }
     }
