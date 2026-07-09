@@ -332,7 +332,8 @@ RESOURCE·INVENTORY 경로에만. DOC/CLARIFY는 빈 배열.
   | 메모리 | `openstack_nova_limits_memory_max` | `openstack_nova_limits_memory_used` |
   | 디스크 | `openstack_cinder_limits_volume_max_gb` | `openstack_cinder_limits_volume_used_gb` |
 - 프로젝트별로 max/used를 `tenant`로 묶어 `used`, `quota=max`, `ratio=used/max`, `available=max-used` 계산.
-  참조 백엔드 `ProjectQuotaAdapter`와 동일 접근(메모리는 필요 시 단위 환산 확인 — 참조는 /1024).
+  참조 백엔드 `ProjectQuotaAdapter`와 동일 접근.
+- **메모리 단위 = MB (확정, 라이브 검증)**: `openstack_nova_limits_memory_max`가 `51200`(=50GB), `..._used`가 `8192`(=8GB)로 관측됨 → 원단위 **MB**. 표기는 가독성 위해 `≥1024MB`면 GB로 환산(참조 `/1024`와 동일). vCPU는 개수, 디스크는 GB 그대로.
 - **⚠ 무제한(-1) 처리 필수**: 라이브에서 일부 테넌트의 `max=-1`(OpenStack의 무제한)이 관측됨.
   `max<=0`이면 `quota=null`, `ratio=null`, severity=null, `display="{used} / 무제한"`로 낸다(0으로 나누기 금지).
 - 이름 표기는 `tenant` 라벨을 그대로 쓴다(참조처럼 `openstack_identity_project_info` 조인 **불필요**).
@@ -340,13 +341,13 @@ RESOURCE·INVENTORY 경로에만. DOC/CLARIFY는 빈 배열.
 #### (7) `metric_rank` 스파크라인 — range 클라이언트 신규 (이 이슈의 유일한 인프라 추가)
 - 지금 `HttpPrometheusClient`는 instant(`/api/v1/query`)만 한다. **`/api/v1/query_range`를 추가**해야 한다.
 - 참조 백엔드에 검증된 패턴이 있다: `PrometheusClient.getRange(url, query, start,end,step)` (POST form) — 예 12h 창 / 5m step.
-- 작업: `PrometheusClient`에 `queryRange(promql, range): List<MetricSeries>` 추가 → 각 행에 `spark: List<Double>` 부착.
-- 비용 주의: 행마다 range 조회는 무겁다. topN(기본 5)만, 짧은 창으로 제한. Resilience4j `prometheus` 인스턴스 재사용.
+- 작업: `PrometheusClient`에 `queryRange(promql, window, step): List<MetricSeries>` 추가 → 각 행에 `spark: List<Double>` 부착.
+- **기본 창 = 5m (확정), step = 30s.** 비용 주의: 행마다 range 조회는 무겁다. topN(기본 5)만, Resilience4j `prometheus` 인스턴스 재사용.
 - **이 위젯은 가장 나중.** 없어도 `metric_rank`는 `spark` 생략으로 정상 동작한다.
 
 #### (8) `project_usage_bar` — 쿼터 사용률로 재정의
 - "프로젝트별 실사용률" 단일 소스는 없음(참조·라이브 모두). → **프로젝트별 쿼터 사용률(used/max)** 로 낸다.
-- (5)의 쿼터 메트릭을 `tenant`별로 묶어 `value=used/max*100`(%). 무제한(-1) 테넌트는 제외하거나 별도 표기.
+- (5)의 쿼터 메트릭을 `tenant`별로 묶어 `value=used/max*100`(%). **무제한(-1) 테넌트는 제외하지 말고 "무제한"으로 표기(확정)** — value/severity=null, 바는 비우고 라벨만 "무제한".
 - 위젯 JSON 모양(`ProjectUsageBarWidget`)은 설계 그대로. **데이터 의미만 재정의**(위 정정 박스).
 
 ---
@@ -367,7 +368,10 @@ RESOURCE·INVENTORY 경로에만. DOC/CLARIFY는 빈 배열.
 1. **평문 `answer`를 없애지 말 것.** 항상 함께 반환(Slack·접근성 폴백).
 2. **유료 LLM 호출을 늘리지 말 것.** 위젯·칩·집계 전부 LLM 0회.
 3. **기존 평문 템플릿을 갈아엎지 말 것.** 옆에 `WidgetBuilder`를 **추가**만.
-4. **Slack 경로 무영향.** Slack은 `answer`만 쓴다(widgets 무시). 회귀 테스트로 보장.
+4. **Slack 경로 무영향.** Slack은 `answer`만 쓴다(widgets 무시).
+   > **현황(2026-07-09)**: Slack 봇은 현재 미가동. 그래도 `answer`(평문)를 항상 반환하는 원칙은
+   > 유지한다 — 웹 캡션·스크린리더 폴백·향후 Slack 재가동 대비. 다만 **"Slack 실환경 회귀"는 현재
+   > N/A**이고, 대신 `DefaultChatServiceTest`에서 "위젯 추가가 answer 문자열을 바꾸지 않음"만 단위로 보장한다.
 5. **임계치·모델·top-k는 `application.yml`.** 하드코딩 금지(불변식 7).
 6. **프론트에서 재포맷·재계산 금지.** severity·display는 서버가 계산해 준 값만 신뢰.
 7. **위젯 값 삽입은 DOM/textContent만.** `innerHTML` 문자열 조립 금지(XSS).
@@ -398,9 +402,266 @@ RESOURCE·INVENTORY 경로에만. DOC/CLARIFY는 빈 배열.
 
 ---
 
-## 10. 미결정 / 확인 필요
+## 10. 결정 완료 (2026-07-09)
 
-- [ ] 메모리 쿼터 단위 — `openstack_nova_limits_memory_*`의 단위(MB?) 확인 후 표기 환산(참조는 /1024). 라이브 값으로 1회 확인.
-- [ ] 스파크라인 range 창/step 기본값(예: 30m/1m vs 참조 12h/5m) — 비용 고려해 결정.
-- [ ] `project_usage_bar`에서 무제한(-1) 테넌트를 "제외"할지 "무제한 표기"할지.
-- [ ] Phase 2 `resource_dashboard`는 별도 이슈로 분리(이 이슈 범위 아님).
+- [x] **메모리 쿼터 단위 = MB** (라이브: max=51200=50GB, used=8192=8GB). 표기는 `≥1024MB`면 GB 환산.
+- [x] **스파크라인 range 기본 = 5m, step 30s.**
+- [x] **무제한(-1) = "무제한" 표기** (제외 아님). `quota_gauge`·`project_usage_bar` 모두 value/ratio/severity=null.
+- [x] **Phase 2(`resource_dashboard`)는 별도 이슈로 분리** → 아래 "관련 이슈" 참고.
+- [x] **연관질문 저장 방식 = 미저장(요청마다 규칙 생성)** — DB·txt 어디에도 넣지 않는다. 상세 11.5·11.8.
+
+### 자주 나오는 질문 (신규 담당자용)
+
+- **Q. DOC인지 RESOURCE인지 누가 구분하나?** → **기존 `QuestionRouter`(LLM #1)가 자동 분류**한다. 이 이슈에서 라우팅은 **건드리지 않는다**. 위젯은 라우터가 이미 RESOURCE로 보낸 뒤의 결과를 변환할 뿐. (파이프라인: `DefaultChatService` → `router.route()` → RESOURCE면 `resourceService.handle()`)
+- **Q. 연관질문(followups)은 DB에 저장하나 txt로 두나?** → **둘 다 아니다. 저장하지 않는다.** 요청마다 `FollowupBuilder`(순수 규칙)가 그 자리에서 만든다(11.8 근거). 정적 txt 목록도, 질의로그 테이블도 만들지 않는다.
+
+### 관련 이슈
+
+- **Phase 2 — `resource_dashboard`(요약 대시보드 위젯)**: 별도 이슈로 분리. 스펙: [`2026-07-09-widgets-phase2-dashboard-issue.md`](./2026-07-09-widgets-phase2-dashboard-issue.md)
+
+---
+
+## 11. 구현 AI 가이드 — 코드·테스트·템플릿 스켈레톤
+
+> 이 절은 "복붙 시작점"이다. 기존 코드 스타일(순수함수 `object`, `data class`, `JdbcTemplate`, 생성자 주입)을 따른다. 패키지 경로는 `com.okestro.ragbot.*`.
+
+### 11.1 도메인 타입 — `resource/domain/Widget.kt` (신규)
+
+```kotlin
+package com.okestro.ragbot.resource.domain
+
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+
+enum class Severity { GOOD, WARN, CRIT }
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type")
+@JsonSubTypes(
+    JsonSubTypes.Type(MetricRankWidget::class,     name = "metric_rank"),
+    JsonSubTypes.Type(InventoryCountWidget::class,  name = "inventory_count"),
+    JsonSubTypes.Type(ThresholdBannerWidget::class, name = "threshold_banner"),
+    JsonSubTypes.Type(QuotaGaugeWidget::class,      name = "quota_gauge"),
+    JsonSubTypes.Type(StatusDonutWidget::class,     name = "status_donut"),
+    JsonSubTypes.Type(ProjectUsageBarWidget::class, name = "project_usage_bar"),
+)
+sealed interface Widget { val type: String }
+
+data class MetricRankWidget(
+    val title: String, val unit: String, val window: String, val promql: String,
+    val rows: List<MetricRankRow>, val empty: Boolean = false,
+) : Widget { override val type = "metric_rank" }
+
+data class MetricRankRow(
+    val instanceName: String, val projectName: String?,
+    val value: Double, val display: String, val severity: Severity?,
+    val spark: List<Double>? = null,   // 1b: range 조회 성공 시만
+)
+
+data class InventoryCountWidget(val label: String, val total: Int, val condition: String?)
+    : Widget { override val type = "inventory_count" }
+
+data class ThresholdBannerWidget(val level: Severity, val title: String, val detail: String?, val count: Int)
+    : Widget { override val type = "threshold_banner" }
+
+data class QuotaGaugeWidget(val items: List<QuotaItem>) : Widget { override val type = "quota_gauge" }
+data class QuotaItem(
+    val resource: String, val used: Double,
+    val quota: Double?,      // null = 무제한(-1)
+    val ratio: Double?,      // null = 무제한
+    val display: String,     // "820 / 1000"  |  "8 / 무제한"
+    val severity: Severity?, // 무제한이면 null
+)
+
+data class StatusDonutWidget(val label: String, val total: Int, val segments: List<StatusSegment>)
+    : Widget { override val type = "status_donut" }
+data class StatusSegment(val status: String, val count: Int, val level: String) // good|warn|crit|muted
+
+data class ProjectUsageBarWidget(val metric: String, val unit: String, val rows: List<ProjectUsageRow>)
+    : Widget { override val type = "project_usage_bar" }
+data class ProjectUsageRow(val projectName: String, val value: Double?, val display: String, val severity: Severity?)
+```
+
+### 11.2 포맷 단일화 — `resource/application/MetricValueFormatter.kt` (신규)
+
+기존 `ResourceAnswerTemplate.formatValue/formatBytes` 로직을 여기로 옮기고 템플릿이 위임한다(동작 동일 — 회귀 테스트로 보장).
+
+```kotlin
+object MetricValueFormatter {
+    fun format(value: Double, unit: String): String = when (unit) {
+        "%"     -> "%.1f%%".format(value)
+        "B/s"   -> bytesPerSec(value)
+        "req/s" -> "%.1f req/s".format(value)
+        "MB"    -> memoryMb(value)                 // 쿼터 메모리(라이브: MB 확정)
+        else    -> "%.2f %s".format(value, unit)
+    }
+    private fun memoryMb(mb: Double): String =     // 51200MB→"50 GB", 8192MB→"8 GB"
+        if (mb >= 1024) "%.0f GB".format(mb / 1024) else "%.0f MB".format(mb)
+    private fun bytesPerSec(v: Double): String = /* 기존 formatBytes 로직 그대로 이동 */
+}
+```
+
+### 11.3 위젯 빌더 — `resource/application/WidgetBuilder.kt` (신규 순수 object)
+
+```kotlin
+object WidgetBuilder {
+
+    fun metricRank(q: ResourceQuery, e: MetricCatalogEntry, samples: List<MetricSample>,
+                   promql: String, sev: SeverityConfig): MetricRankWidget {
+        if (samples.isEmpty())
+            return MetricRankWidget(titleOf(q), e.unit, q.window, promql, emptyList(), empty = true)
+        val rows = samples.map { s ->
+            MetricRankRow(s.instanceName, s.projectName, s.value,
+                MetricValueFormatter.format(s.value, s.unit),
+                severityFor(s.value, s.unit, sev))
+        }
+        return MetricRankWidget(titleOf(q), e.unit, q.window, promql, rows)
+    }
+
+    // % 지표만 severity, 아니면 null
+    fun severityFor(value: Double, unit: String, c: SeverityConfig): Severity? =
+        if (unit != "%") null
+        else when {
+            value >= c.critPercent -> Severity.CRIT
+            value >= c.warnPercent -> Severity.WARN
+            else                   -> Severity.GOOD
+        }
+
+    // -1 → quota=null, ratio=null, "N / 무제한", severity=null
+    fun quotaGauge(raws: List<QuotaRaw>, sev: SeverityConfig): QuotaGaugeWidget { /* ... */ }
+    fun statusDonut(label: String, counts: Map<String, Int>): StatusDonutWidget { /* level 매핑 */ }
+    fun inventoryCount(r: InventoryResult): InventoryCountWidget
+    fun projectUsageBar(raws: List<QuotaRaw>, sev: SeverityConfig): ProjectUsageBarWidget // used/max*100, 무제한 표기
+    fun thresholdBanner(overNames: List<String>, critPercent: Int): ThresholdBannerWidget?
+}
+```
+
+**severity 경계 규칙(테스트가 검증)**: `value < warn`→GOOD, `warn ≤ value < crit`→WARN, `value ≥ crit`→CRIT.
+기본 warn=70/crit=85 → **69→GOOD, 70→WARN, 84→WARN, 85→CRIT.**
+
+### 11.4 range 조회 — `PrometheusClient.queryRange` (신규 메서드, 스파크라인용)
+
+```kotlin
+// PrometheusClient.kt (포트) — instant 옆에 추가
+fun queryRange(promql: String, window: String = "5m", step: String = "30s"): List<MetricSeries>
+// domain: data class MetricSeries(val instanceName: String, val points: List<Double>)
+
+// HttpPrometheusClient — 참조 검증 패턴: POST form /api/v1/query_range (start,end,step epoch/sec)
+//   기본 window=5m, step=30s(확정). topN(기본 5)행만. @Retry/@CircuitBreaker(name="prometheus") 재사용.
+//   실패/빈결과 → emptyList. 스파크라인은 옵션이므로 없으면 metric_rank가 spark 생략으로 정상 동작.
+```
+
+### 11.5 연관질문 칩 — `resource/application/FollowupBuilder.kt` (신규 순수 규칙, LLM 0회)
+
+```kotlin
+object FollowupBuilder {
+    // 요청마다 그 자리에서 생성. 저장/영속화 없음(11.8).
+    fun forResource(q: ResourceQuery, samples: List<MetricSample>): List<String> {
+        val chips = mutableListOf<String>()
+        samples.firstOrNull()?.let { top ->
+            chips += "${top.instanceName} 메모리는?"                       // 지표 전환
+            if (q.project == null) top.projectName?.let { chips += "$it 만 보기" }  // 프로젝트 필터
+        }
+        chips += "네트워크 송신량 TopN"                                     // 다른 지표
+        return chips.distinct().take(3)
+    }
+    fun forInventory(kind: InventoryKind): List<String> = /* "스냅샷은 몇 개야?" 등 */ emptyList()
+}
+```
+
+### 11.6 설정 — `application.yml` + `AppProperties`
+
+```yaml
+app:
+  resource:
+    severity:            # 신규 (하드코딩 금지, 불변식 7)
+      warn-percent: 70
+      crit-percent: 85
+```
+```kotlin
+// AppProperties.Resource 안에 추가
+val severity: Severity = Severity()
+data class Severity(val warnPercent: Int = 70, val critPercent: Int = 85)
+```
+`WidgetBuilder`는 이 config(`SeverityConfig`)를 인자로 받는다. `%` 지표에만 적용.
+
+### 11.7 어떻게 테스트하나 (실행 + 케이스)
+
+실행: `./gradlew test` — **키 없이 항상 그린**이어야 함. 실 Prometheus는 env-gated(옵션).
+
+| 테스트 파일(신규) | 검증 |
+|---|---|
+| `WidgetBuilderTest` | severity 경계(69/70/84/85), 빈 samples→`empty=true`, 단위별 display, 무제한(-1)→quota/ratio/severity=null |
+| `MetricValueFormatterTest` | 평문·위젯 **동일 문자열**(드리프트 회귀). "91.2%", "50 GB"(51200MB), "8 GB"(8192MB) |
+| `ChatResponseSerializationTest` | `widgets`/`followups` 기본 빈배열, `type` 판별자 **round-trip**(직렬화→역직렬화 동일 객체) |
+| `FollowupBuilderTest` | 최대 3개, 프로젝트 이미 적용 시 "만 보기" 미생성, 중복 제거 |
+| `DefaultChatServiceTest`(기존 확장) | 위젯 추가가 **answer 문자열을 안 바꿈**(Slack 무영향 대체 보장), DOC 경로 회귀 |
+
+경계값·무제한 테스트 예:
+```kotlin
+@Test fun `severity 경계 - 85는 CRIT, 84는 WARN`() {
+    val c = SeverityConfig(warnPercent = 70, critPercent = 85)
+    assertEquals(Severity.CRIT, WidgetBuilder.severityFor(85.0, "%", c))
+    assertEquals(Severity.WARN, WidgetBuilder.severityFor(84.0, "%", c))
+    assertNull(WidgetBuilder.severityFor(85.0, "B/s", c))   // %만 severity
+}
+@Test fun `무제한 쿼터는 quota-ratio null과 무제한 표기`() {
+    val w = WidgetBuilder.quotaGauge(listOf(QuotaRaw("vCPU", used = 8.0, max = -1.0)), SeverityConfig())
+    val it = w.items[0]
+    assertNull(it.quota); assertNull(it.ratio); assertNull(it.severity)
+    assertTrue(it.display.contains("무제한"))
+}
+```
+
+### 11.8 연관질문 저장 방식 — **설계 결정: 미저장(요청마다 규칙 생성)**
+
+> 질문: "연관질문을 DB에 넣을지, 그냥 txt로 갖고 있을지?" → **둘 다 아니다.**
+
+| 후보 | 채택? | 이유 |
+|---|---|---|
+| **A. 요청마다 규칙 생성(FollowupBuilder)** | ✅ **채택** | 칩은 top 결과(`rows[0]`)에 의존 → **매 응답 내용이 달라짐**. 미리 저장할 대상이 아님. 상태 없음 = 버그·정합성 문제 없음. LLM 0회. |
+| B. DB 테이블에 저장 | ❌ | 저장할 안정적 실체가 없음(질문마다 재계산). 불변식 6("질의로그/캐시 테이블은 고도화")과 충돌 — 1차 범위 아님. 스키마·마이그레이션·소유권 비용만 추가. |
+| C. 정적 txt/리소스 파일 | ❌ | 칩은 동적(인스턴스·프로젝트 이름 삽입)이라 정적 목록으로 표현 불가. 하드코딩은 불변식 7 위반 소지. |
+
+**결정 근거 정리**
+- 연관질문은 **파생 데이터(derived)** 다. 원본은 `ResourceQuery` + top 결과이고, 둘 다 요청 처리 중 이미 메모리에 있다.
+- 저장하면 원본과 어긋날 위험(스테일)만 생기고 이득 없음 → **순수함수로 그 자리에서 계산**이 가장 단순(불변식: 단순성 우선).
+- 응답 DTO(`ChatResponse.followups: List<String>`)로만 나가고 끝. 서버·DB에 잔존물 없음.
+- (향후 고도화) 클릭 통계가 필요해지면 그때 **클릭 이벤트**만 로깅하는 별도 과제로. 지금은 범위 밖.
+
+### 11.9 위젯 최종 모양 (직렬화 결과 — FE가 실제로 받는 것)
+
+```jsonc
+// "CPU 제일 높은 인스턴스" 응답 전체
+{
+  "answer": "CPU 사용률이 높은 인스턴스 (프로젝트: service-prod):\n  1. web-prod-07 ...",
+  "sources": [],
+  "widgets": [
+    { "type": "metric_rank", "title": "CPU 사용률이 높은 인스턴스", "unit": "%", "window": "5m",
+      "promql": "topk(5, ...)", "empty": false,
+      "rows": [
+        { "instanceName": "web-prod-07", "projectName": "service-prod", "value": 91.2, "display": "91.2%", "severity": "CRIT" },
+        { "instanceName": "cache-03",    "projectName": "service-prod", "value": 61.9, "display": "61.9%", "severity": "GOOD" }
+      ]}
+  ],
+  "followups": ["web-prod-07 메모리는?", "service-prod 만 보기", "네트워크 송신량 TopN"]
+}
+```
+
+### 11.10 파일 변경 요약 (체크리스트)
+
+| 파일 | 신규/수정 | 내용 |
+|---|---|---|
+| `resource/domain/Widget.kt` | 신규 | 위젯 sealed 타입 + Jackson |
+| `resource/application/MetricValueFormatter.kt` | 신규 | 포맷 단일화 |
+| `resource/application/WidgetBuilder.kt` | 신규 | 순수 변환 |
+| `resource/application/FollowupBuilder.kt` | 신규 | 규칙 칩 |
+| `resource/application/ResourceAnswerTemplate.kt` | 수정 | 포맷터 위임 |
+| `resource/application/PrometheusClient.kt` (+Http) | 수정 | `queryRange` 추가(1b) |
+| `resource/application/ResourceService.kt` | 수정 | `Result`에 widgets/followups |
+| `resource/application/DefaultResourceService.kt` | 수정 | answer와 함께 위젯·칩 생성 |
+| `chat/application/ChatResult.kt` | 수정 | widgets/followups 필드 |
+| `chat/application/DefaultChatService.kt` | 수정 | handleResource 전달 |
+| `chat/interfaces/ChatResponse.kt` | 수정 | widgets/followups 필드 |
+| `chat/interfaces/ChatController.kt` | 수정 | 매핑 |
+| `common/config/AppProperties.kt` + `application.yml` | 수정 | `app.resource.severity` |
+| `**Test.kt` (5종) | 신규 | 11.7 |
