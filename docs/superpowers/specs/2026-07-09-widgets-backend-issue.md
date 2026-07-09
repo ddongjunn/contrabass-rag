@@ -695,3 +695,40 @@ data class Severity(val warnPercent: Int = 70, val critPercent: Int = 85)
 | `chat/interfaces/ChatController.kt` | 수정 | 매핑 |
 | `common/config/AppProperties.kt` + `application.yml` | 수정 | `app.resource.severity` |
 | `**Test.kt` (5종) | 신규 | 11.7 |
+
+---
+
+## 12. 작업 진행 규약 (구현 AI 필독 — "계속 진행해" 대응)
+
+> 당신은 이 이슈를 **단계별로** 구현하는 AI다. 담당자는 자주 **"계속 진행해"** 한 마디만 한다.
+> 그때마다 아래 루프를 지켜라. **한 번에 여러 단계를 몰아치지 말고, 한 항목씩** 끝낸다.
+
+### "계속 진행해"를 받으면 매번 이 루프
+
+1. **직전 완료 요약 (3줄 이내)** — 무엇을 만들었나 / 어떤 파일 / 검증 결과(`./gradlew test` 결과 줄 인용).
+2. **체크리스트 갱신** — 아래 §12 체크박스 + §11.10 파일 표에 `[x]` 표시.
+3. **다음 단계 1개 선언** — 아래 순서에서 가장 위의 미완료 항목 하나만.
+4. **구현** — TDD(테스트 먼저 → 통과). 불변식(§8) 준수. **단계별 커밋**(명확한 메시지, `Co-Authored-By` 트레일러).
+5. **검증 후 정지** — `export JAVA_HOME=/…/corretto-21.0.10; export $(grep -v '^#' .env | xargs); ./gradlew test` **그린 확인**. 그 뒤 1로 돌아가 담당자의 다음 "계속 진행해"를 기다린다.
+
+> 한 항목이 끝날 때마다 **요약 → 커밋 → 검증**을 반드시 하고 멈춘다. 요약 없이 다음으로 넘어가지 마라.
+
+### 구현 순서 체크리스트
+
+- [x] **0.** 환경: JDK 21, `.env`(OPENAI_API_KEY·PROMETHEUS_URL) 로드 — *POC에서 확인됨*
+- [x] **1.** 공통 배선 + `metric_rank` + `inventory_count` + `followups` — *`feat/widgets-poc`로 완료·머지됨*
+- [ ] **2.** `quotaGauge` 실쿼리 (§6.5·§11.3 TODO — openstack `*_limits_*`, `tenant` 라벨, `-1` 무제한)
+- [ ] **3.** `statusDonut` 실쿼리 (`count by(status)(openstack_nova_server_status)`)
+- [ ] **4.** `thresholdBanner` (자작 `count(cpu식 > crit)`)
+- [ ] **5.** `projectUsageBar` (쿼터 사용률 재정의)
+- [ ] **6.** 스파크라인 (`PrometheusClient.queryRange` 신규, 5m/30s)
+- [ ] **7.** 각 1b 위젯의 **트리거 의도**(라우터/추출기 확장) — 위젯을 실제 질문으로 부를 수 있게
+
+> 시작점은 **2번**이다(0·1은 POC에서 끝남). 각 항목의 "무엇을·어떻게"는 §6.5와 `WidgetBuilder.kt`의
+> 해당 메서드 `// TODO(new-dev):` 주석에 검증된 쿼리·라벨·절차로 박혀 있다. 그걸 그대로 따르면 된다.
+
+### 금지
+
+- 요약·커밋·테스트 없이 다음 단계로 점프.
+- 한 "계속 진행해"에 2개 이상 항목을 동시에 처리.
+- 불변식(§8) 위반(LLM 추가 호출·평문 제거·하드코딩·XSS·범위 초과).
