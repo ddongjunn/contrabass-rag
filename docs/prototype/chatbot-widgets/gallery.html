@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CONTRABASS Chat · 위젯 갤러리</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page-bg: #f5f6f8; --ink: #30353a; --muted: #777d86; --panel: #ffffff;
+    --line: #e2e5e9; --line-2: #eef0f3;
+    --accent: #1f7bf2; --accent-dark: #1467d9; --accent-soft: #e7f2ff;
+    --brand: #f36c21; --brand-soft: #fff2e8;
+    --good: #12a06a; --good-soft: #e3f5ec; --warn: #d98a04; --warn-soft: #fbeecf;
+    --crit: #e0483d; --crit-soft: #fbe0dd;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page-bg); color: var(--ink); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.top { margin-bottom: 8px; }
+  .brand-mark { display: inline-block; border: 1px solid rgba(48,53,58,.12); border-radius: 8px; padding: 8px 12px; background: #fff; color: var(--brand); font-weight: 700; font-size: 12px; }
+  h1.title { font-size: 24px; margin: 16px 0 4px; }
+  .lede { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  .nav { font-size: 13px; margin-bottom: 28px; }
+  .nav a { color: var(--accent); text-decoration: none; }
+
+  .sec-head { display: flex; align-items: center; gap: 10px; margin: 36px 0 16px; }
+  .sec-head h2 { font-size: 16px; margin: 0; }
+  .tag { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+  .tag.in { color: var(--good); background: var(--good-soft); }
+  .tag.cand { color: var(--brand); background: var(--brand-soft); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+  .cell { display: flex; flex-direction: column; gap: 8px; }
+  .cell > .name { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .cell > .desc { font-size: 11.5px; color: var(--muted); margin-top: -4px; }
+
+  /* ---- shared widget styles (mirror chat-widget) ---- */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .card-title { font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card-title .meta { font-size: 11px; font-weight: 500; color: var(--muted); }
+  .card-foot { margin-top: 12px; font-size: 11px; color: var(--muted); }
+  .prom { font-family: var(--mono); background: var(--line-2); padding: 1px 6px; border-radius: 4px; font-size: 10px; }
+
+  /* rank */
+  .rank { display: flex; flex-direction: column; gap: 10px; margin-top: 13px; }
+  .rank-row { display: grid; grid-template-columns: 16px 1fr; gap: 9px; align-items: start; }
+  .rank-row .idx { font-size: 11px; color: var(--muted); font-family: var(--mono); text-align: center; padding-top: 1px; }
+  .rank-inner { display: grid; grid-template-columns: 1fr auto; gap: 3px 9px; }
+  .rank-inner .nm { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-inner .val { font-family: var(--mono); font-weight: 700; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+  .rank-inner .bar { grid-column: 1 / -1; height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .rank-inner .bar > i { display: block; height: 100%; border-radius: 4px; }
+  .rank-inner .prj { grid-column: 1 / -1; font-size: 10.5px; color: var(--muted); }
+
+  /* dashboard */
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; }
+  .kpi .k { font-size: 11px; color: var(--muted); }
+  .kpi .n { font-size: 22px; font-weight: 800; font-family: var(--mono); margin-top: 2px; display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .n small { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .chip { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 20px; margin-top: 6px; }
+  .chip.good { color: var(--good); background: var(--good-soft); }
+  .chip.warn { color: var(--warn); background: var(--warn-soft); }
+  .chip.crit { color: var(--crit); background: var(--crit-soft); }
+  .wide { grid-column: 1 / -1; }
+  .metric-mini { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line-2); }
+  .metric-mini:last-child { border-bottom: 0; }
+  .metric-mini .ml { font-size: 12px; display: flex; align-items: center; gap: 8px; }
+  .metric-mini .ml b { width: 8px; height: 8px; border-radius: 2px; }
+  .metric-mini .track { width: 110px; height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .metric-mini .track > i { display: block; height: 100%; border-radius: 4px; }
+  .metric-mini .mv { font-family: var(--mono); font-weight: 700; font-size: 12.5px; width: 46px; text-align: right; }
+
+  /* count */
+  .count-card { display: flex; align-items: center; gap: 14px; }
+  .count-card .big { font-size: 36px; font-weight: 800; font-family: var(--mono); color: var(--accent); }
+  .count-card .lbl { font-size: 13px; font-weight: 600; }
+  .count-card .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* table */
+  table.inv { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+  table.inv th { text-align: left; font-size: 10.5px; color: var(--muted); font-weight: 600; padding: 0 8px 8px; border-bottom: 1px solid var(--line); }
+  table.inv td { padding: 8px; border-bottom: 1px solid var(--line-2); }
+  table.inv td.nm { font-weight: 600; }
+  table.inv .st { font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 20px; }
+  table.inv .st.up { color: var(--good); background: var(--good-soft); }
+  table.inv .st.down { color: var(--crit); background: var(--crit-soft); }
+  table.inv .st.mid { color: var(--warn); background: var(--warn-soft); }
+  table.inv td.num { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* trend */
+  .trend-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .trend-val { font-size: 28px; font-weight: 800; font-family: var(--mono); }
+  .trend-val .u { font-size: 14px; color: var(--muted); }
+  .delta { font-size: 11.5px; font-weight: 700; font-family: var(--mono); padding: 2px 7px; border-radius: 20px; }
+  .delta.up { color: var(--crit); background: var(--crit-soft); }
+  .delta.down { color: var(--good); background: var(--good-soft); }
+
+  /* gauge */
+  .gauge-card { text-align: center; }
+  .gauge-wrap { position: relative; width: 150px; margin: 6px auto 2px; }
+  .gauge-num { position: absolute; left: 0; right: 0; bottom: 6px; font-size: 30px; font-weight: 800; font-family: var(--mono); }
+  .gauge-cap { font-size: 12px; color: var(--muted); }
+
+  /* comparison */
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .cmp .col { border: 1px solid var(--line); border-radius: 10px; padding: 11px; }
+  .cmp .col h4 { margin: 0 0 8px; font-size: 12px; }
+  .cmp .col .row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; }
+  .cmp .col .row span:last-child { font-family: var(--mono); font-weight: 700; }
+
+  /* empty / error */
+  .state { text-align: center; padding: 22px 12px; }
+  .state .ico { font-size: 26px; }
+  .state .msg { font-size: 13px; margin-top: 8px; color: var(--ink); }
+  .state .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="brand-mark">CONTRABASS</span>
+    <h1 class="title">챗봇 위젯 갤러리</h1>
+    <p class="lede">실제 <code>chat-widget</code> 브랜드 토큰으로 렌더한 집계 위젯 후보들입니다. 각 위젯이 대화 버블 안에 들어간다고 보시면 됩니다.</p>
+    <p class="nav">← <a href="./index.html">인터랙티브 대화 데모로 돌아가기</a></p>
+  </header>
+
+  <!-- ===== 포함 예정 (스펙 확정) ===== -->
+  <div class="sec-head"><h2>포함 예정</h2><span class="tag in">스펙 확정 3종</span></div>
+  <div class="grid">
+
+    <div class="cell">
+      <div class="name">metric_rank — CPU (%)</div>
+      <div class="desc">Prometheus TopN · 임계치 색상</div>
+      <div class="card">
+        <div class="card-title">CPU 사용률이 높은 인스턴스 <span class="meta">최근 5m</span></div>
+        <div class="rank" id="rank-cpu"></div>
+        <div class="card-foot"><span class="prom">topk(5, ...cpu...)</span></div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">metric_rank — 네트워크 (B/s→MB/s)</div>
+      <div class="desc">단위 자동 변환 · 절대값 바</div>
+      <div class="card">
+        <div class="card-title">네트워크 송신량이 높은 인스턴스 <span class="meta">최근 5m</span></div>
+        <div class="rank" id="rank-net"></div>
+        <div class="card-foot"><span class="prom">topk(5, rate(...tx...[5m]))</span></div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">resource_dashboard</div>
+      <div class="desc">요약 질의 · KPI + 메트릭 미니바</div>
+      <div class="card">
+        <div class="card-title">클러스터 자원 현황 <span class="meta">최근 5m</span></div>
+        <div class="dash-grid">
+          <div class="kpi"><div class="k">가동 인스턴스</div><div class="n">128 <small>/ 140</small></div><span class="chip good">91% 정상</span></div>
+          <div class="kpi"><div class="k">임계 초과 노드</div><div class="n">2 <small>대</small></div><span class="chip crit">CPU 85%↑</span></div>
+          <div class="wide" style="border:1px solid var(--line);border-radius:12px;padding:2px 12px" id="dash-metrics"></div>
+        </div>
+        <div class="card-foot"><span class="prom">avg by(resource)(...)</span></div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">inventory_count</div>
+      <div class="desc">cb_common COUNT 모드</div>
+      <div class="card count-card">
+        <div class="big">342</div>
+        <div><div class="lbl">볼륨 342건</div><div class="sub">상태=available · 프로젝트 전체</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== 후보 (추가 검토) ===== -->
+  <div class="sec-head"><h2>추가 후보</h2><span class="tag cand">넣을지 결정 필요</span></div>
+  <div class="grid">
+
+    <div class="cell">
+      <div class="name">inventory_table — 목록 모드</div>
+      <div class="desc">스펙 미결: LIST 결과를 표로. 상태 배지 포함</div>
+      <div class="card">
+        <div class="card-title">인스턴스 목록 <span class="meta">8건 중 5</span></div>
+        <table class="inv">
+          <thead><tr><th>이름</th><th>프로젝트</th><th>상태</th><th class="num">vCPU</th></tr></thead>
+          <tbody>
+            <tr><td class="nm">web-prod-07</td><td>service-prod</td><td><span class="st up">ACTIVE</span></td><td class="num">8</td></tr>
+            <tr><td class="nm">api-prod-02</td><td>service-prod</td><td><span class="st up">ACTIVE</span></td><td class="num">4</td></tr>
+            <tr><td class="nm">batch-11</td><td>data-platform</td><td><span class="st mid">REBOOT</span></td><td class="num">16</td></tr>
+            <tr><td class="nm">legacy-01</td><td>infra</td><td><span class="st down">SHUTOFF</span></td><td class="num">2</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">metric_trend — 시계열</div>
+      <div class="desc">스펙 비목표(향후): 단일 지표 추이 + 델타</div>
+      <div class="card">
+        <div class="card-title">web-prod-07 · CPU 추이 <span class="meta">최근 1h</span></div>
+        <div class="trend-head" style="margin-top:8px">
+          <div class="trend-val">91.2<span class="u">%</span></div>
+          <span class="delta up">▲ +14%p</span>
+        </div>
+        <svg viewBox="0 0 300 60" preserveAspectRatio="none" style="width:100%;height:60px;margin-top:6px">
+          <defs><linearGradient id="tg" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="var(--crit)" stop-opacity=".25"/><stop offset="1" stop-color="var(--crit)" stop-opacity="0"/>
+          </linearGradient></defs>
+          <path d="M0,46 L30,48 L60,42 L90,44 L120,34 L150,37 L180,26 L210,23 L240,16 L270,12 L300,7 L300,60 L0,60 Z" fill="url(#tg)"/>
+          <path d="M0,46 L30,48 L60,42 L90,44 L120,34 L150,37 L180,26 L210,23 L240,16 L270,12 L300,7" fill="none" stroke="var(--crit)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="300" cy="7" r="3" fill="var(--crit)"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">metric_gauge — 단일 지표</div>
+      <div class="desc">"node-07 CPU?" 같은 단건 질의</div>
+      <div class="card gauge-card">
+        <div class="card-title" style="justify-content:center">web-prod-07 · CPU</div>
+        <div class="gauge-wrap">
+          <svg width="150" height="84" viewBox="0 0 150 84">
+            <path d="M12,80 A63,63 0 0,1 138,80" fill="none" stroke="var(--line)" stroke-width="12" stroke-linecap="round"/>
+            <path d="M12,80 A63,63 0 0,1 138,80" fill="none" stroke="var(--crit)" stroke-width="12" stroke-linecap="round" stroke-dasharray="198" stroke-dashoffset="18"/>
+          </svg>
+          <div class="gauge-num" style="color:var(--crit)">91<span style="font-size:15px">%</span></div>
+        </div>
+        <div class="gauge-cap">임계치 85% 초과 · service-prod</div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">comparison — 비교 뷰</div>
+      <div class="desc">인스턴스/기간 나란히 비교</div>
+      <div class="card">
+        <div class="card-title">web-prod-07 vs api-prod-02</div>
+        <div class="cmp">
+          <div class="col"><h4>web-prod-07</h4>
+            <div class="row"><span>CPU</span><span style="color:var(--crit)">91%</span></div>
+            <div class="row"><span>메모리</span><span>64%</span></div>
+            <div class="row"><span>디스크</span><span>31%</span></div>
+          </div>
+          <div class="col"><h4>api-prod-02</h4>
+            <div class="row"><span>CPU</span><span style="color:var(--warn)">87%</span></div>
+            <div class="row"><span>메모리</span><span>72%</span></div>
+            <div class="row"><span>디스크</span><span>44%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">empty state — 결과 0건</div>
+      <div class="desc">"조건에 해당 인스턴스 없음" 대응</div>
+      <div class="card">
+        <div class="state">
+          <div class="ico">🔍</div>
+          <div class="msg">조건에 맞는 인스턴스가 없습니다</div>
+          <div class="hint">프로젝트=service-prod · 상태=ERROR</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="name">error state — 조회 실패</div>
+      <div class="desc">Prometheus 타임아웃 등 (Resilience4j)</div>
+      <div class="card">
+        <div class="state">
+          <div class="ico">⚠️</div>
+          <div class="msg">지표를 불러오지 못했어요</div>
+          <div class="hint">Prometheus 응답 지연 · 잠시 후 다시 시도</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const sev = p => p >= 85 ? "var(--crit)" : p >= 70 ? "var(--warn)" : "var(--good)";
+  function rank(elId, rows, unit) {
+    const max = Math.max(...rows.map(r => r.value));
+    document.getElementById(elId).innerHTML = rows.map((r,i) => {
+      const color = unit === "%" ? sev(r.value) : "var(--accent)";
+      return `<div class="rank-row"><span class="idx">${i+1}</span>
+        <div class="rank-inner">
+          <span class="nm">${r.instanceName}</span>
+          <span class="val" style="color:${color}">${r.display}</span>
+          <span class="bar"><i style="width:${Math.max(4,(r.value/max)*100).toFixed(0)}%;background:${color}"></i></span>
+          <span class="prj">${r.projectName}</span>
+        </div></div>`;
+    }).join("");
+  }
+  rank("rank-cpu", [
+    {instanceName:"web-prod-07", projectName:"service-prod", value:91.2, display:"91.2%"},
+    {instanceName:"api-prod-02", projectName:"service-prod", value:87.0, display:"87.0%"},
+    {instanceName:"batch-11", projectName:"data-platform", value:73.4, display:"73.4%"},
+    {instanceName:"cache-03", projectName:"service-prod", value:61.9, display:"61.9%"},
+  ], "%");
+  rank("rank-net", [
+    {instanceName:"gw-edge-01", projectName:"network", value:842, display:"842 MB/s"},
+    {instanceName:"web-prod-07", projectName:"service-prod", value:410, display:"410 MB/s"},
+    {instanceName:"stream-05", projectName:"media", value:296, display:"296 MB/s"},
+    {instanceName:"api-prod-02", projectName:"service-prod", value:120, display:"120 MB/s"},
+  ], "B/s");
+  document.getElementById("dash-metrics").innerHTML = [
+    {n:"CPU",v:72},{n:"메모리",v:64},{n:"디스크",v:41},{n:"네트워크",v:58},
+  ].map(m => `<div class="metric-mini"><span class="ml"><b style="background:${sev(m.v)}"></b>${m.n}</span>
+      <span class="track"><i style="width:${m.v}%;background:${sev(m.v)}"></i></span>
+      <span class="mv">${m.v}%</span></div>`).join("");
+</script>
+</body>
+</html>
