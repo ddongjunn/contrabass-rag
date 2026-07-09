@@ -361,6 +361,36 @@ RESOURCE·INVENTORY 경로에만. DOC/CLARIFY는 빈 배열.
 - `openstack_nova_server_status` → 존재. 라벨 `{status="ACTIVE", name="...", tenant_id="...", id="...", hypervisor_hostname="..."}`.
 - 결론: **1b 위젯의 데이터 소스가 모두 실재**. 남은 실작업은 (a) `query_range` 클라이언트 추가(스파크라인), (b) `-1` 무제한 처리.
 
+### 7.1 실 파이프라인 E2E 검증 (실 OpenAI 토큰 + 실 Prometheus, 2026-07-09)
+
+`./gradlew resourceCli`로 자연어 질문을 전체 경로에 통과시킴 — **질문 → LLM 추출 → PromQL 조립 → 실 Prometheus → 답변**까지 완주 확인:
+
+| 질문 | LLM 추출(실측) | 결과 |
+|---|---|---|
+| "CPU 제일 높은 인스턴스 5개" | `INSTANCE_CPU sort=DESC topN=5` conf 0.95 | 1. kmj-cluster-control-plane [pqa-viola-306] 35.0% … 5행 실값 |
+| "메모리 사용률 높은 VM 3개" | `INSTANCE_MEMORY topN=3` conf 0.92 | 1. kmj-… 84.9%(→WARN) … 3행 실값 |
+| "볼륨 몇 개야?" | `INVENTORY VOLUME COUNT` conf 0.9 | 라우팅 정확(인벤토리 DB 비활성이라 조회 스킵) |
+
+추가 라이브 집계 실측(1b 소스 확정):
+- `status_donut` = `count by(status)(openstack_nova_server_status)` → **ACTIVE=116, SHUTOFF=2, ERROR=1** (실측).
+
+### 7.2 실행 환경 주의 (신규 담당자 필독)
+
+- **JDK 21 필수.** 이 머신 기본 `java`가 JDK 25면 Gradle Kotlin 컴파일러가 `IllegalArgumentException: 25.0.2`로 깨진다. 실행 전:
+  ```bash
+  export JAVA_HOME=/…/corretto-21.0.10/Contents/Home   # 또는 설치된 JDK 21 경로
+  export $(grep -v '^#' .env | xargs)                   # OPENAI_API_KEY, PROMETHEUS_URL
+  ./gradlew resourceCli -q --console=plain              # 자연어 질문 → 답변 E2E
+  ```
+- 시크릿은 `.env`(gitignore). 커밋/푸시 금지.
+
+### 7.3 POC 스캐폴드 브랜치 (시작점)
+
+Phase 1 스캐폴드가 **이미 구현·테스트 통과** 상태로 존재한다 → 신규 담당자는 이걸 받아 `TODO(new-dev)`만 채운다.
+- 브랜치 **`feat/widgets-poc`** (PR: `#15`). `./gradlew test`(JDK 21) 그린, 105 tests.
+- **실동작(배선 완료)**: `WidgetBuilder.metricRank/inventoryCount`, `FollowupBuilder`, severity 규칙, 쿼터 `-1→null "무제한"`, `ChatResponse`까지 `widgets`/`followups` 전달.
+- **목업+TODO 시임**: `quotaGauge·statusDonut·thresholdBanner·projectUsageBar`, 스파크라인 `spark`(실 경로 null 유지 — 환각방지). 각 위치에 `// TODO(new-dev): …` 주석.
+
 ---
 
 ## 8. 하지 말 것 (불변식 — 어기면 리뷰 반려)
