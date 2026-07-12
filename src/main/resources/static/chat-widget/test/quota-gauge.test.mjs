@@ -33,5 +33,13 @@ test("quota_gauge unlimited (quota null) is muted, no severity color", () => {
   const node = buildQuotaGauge(unlimited);
   const fill = findAll(node, "rk-track")[0].children[0];
   assert.equal(fill.className, "sev-muted");
-  assert.equal(findAll(node, "rk-val")[0].text, "8 / 무제한");
+  // display를 " / " 기준으로 현재량/총량 분리
+  assert.equal(findAll(node, "rk-cur")[0].text, "8");
+  assert.equal(findAll(node, "rk-tot")[0].text, " / 무제한");
+});
+
+test("quota_gauge splits current vs total, current emphasized", () => {
+  const node = buildQuotaGauge(w);
+  assert.deepEqual(findAll(node, "rk-cur").map((n) => n.text), ["820", "6100"]);
+  assert.deepEqual(findAll(node, "rk-tot").map((n) => n.text), [" / 1000", " / 10000 GB"]);
 });
