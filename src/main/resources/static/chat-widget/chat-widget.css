@@ -1,3 +1,6 @@
+/* :host = shadow 호스트(임베드 시), :root = 라이트 DOM 폴백.
+   custom property는 :host에 선언하면 shadow 트리로 상속된다(:root는 shadow에서 매치 안 됨). */
+:host,
 :root {
   color-scheme: light;
   --page-bg: #f5f6f8;
@@ -13,6 +16,25 @@
   --brand-soft: #fff2e8;
   --danger: #b3261e;
   --shadow: 0 18px 48px rgba(28, 36, 48, 0.18);
+  /* --- widget palette (spec §7.1, primary #F76205 기반 검증) --- */
+  --primary: #f76205;
+  --primary-soft: #fff1e8;
+  --w-good: #1eb85c;
+  --w-good-soft: #e7f8ef;
+  --w-good-ink: #0f8043;
+  --w-warn: #f0b429;
+  --w-warn-soft: #fdf6e3;
+  --w-warn-ink: #9a7400;
+  --w-crit: #f03e3e;
+  --w-crit-soft: #fdecec;
+  --w-crit-ink: #c62828;
+  --w-info: #3182f6;
+  --w-info-soft: #e8f2ff;
+  --w-info-ink: #1b64da;
+  --w-ink: #191f28;
+  --w-ink2: #4e5968;
+  --w-muted: #8b95a1;
+  --w-line: #f2f4f6;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -375,3 +397,104 @@ textarea:focus-visible {
     max-width: 88%;
   }
 }
+
+/* ===================== widgets ===================== */
+.card.widget {
+  background: #fff;
+  border: none;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(25, 31, 40, 0.04), 0 4px 16px rgba(25, 31, 40, 0.05);
+  margin-top: 8px;
+}
+.widget .eyebrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--w-muted);
+  margin-bottom: 14px;
+}
+
+/* rank / gauge / usage-bar rows — 이름 · 막대 · 값 한 줄 레이아웃 */
+.rk { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 11px; }
+.rk:last-child { margin-bottom: 0; }
+.rk-name { flex: 0 0 auto; min-width: 76px; max-width: 132px; display: flex; flex-direction: column; overflow: hidden; }
+.rk-nm { font-size: 13px; font-weight: 600; color: var(--w-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-prj { font-size: 10.5px; font-weight: 400; color: var(--w-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-track { flex: 1 1 auto; height: 6px; border-radius: 6px; background: var(--w-line); overflow: hidden; }
+.rk-track > i { display: block; height: 100%; border-radius: 6px; }
+.rk-val { flex: 0 0 auto; min-width: 40px; text-align: right; font-size: 13.5px; font-weight: 600; color: var(--w-ink); font-variant-numeric: tabular-nums; }
+/* 쿼터 값: 현재량은 진하게, 총량(/ 뒤)은 흐리게 — 크기/굵기는 그대로, 색 대비만 */
+.rk-cur { color: var(--w-ink); }
+.rk-tot { color: var(--w-muted); font-weight: 500; }
+.rk-spark { flex: 0 0 100%; display: block; width: 100%; height: 22px; margin-top: 2px; }
+.rk-spark polyline { stroke: var(--w-muted); }
+
+/* severity fills */
+.sev-good { background: var(--w-good); }
+.sev-warn { background: var(--w-warn); }
+.sev-crit { background: var(--w-crit); }
+.sev-accent { background: var(--primary); }
+.sev-muted { background: #dfe2e5; }
+
+.wfoot { margin-top: 12px; }
+.prom {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; color: var(--w-muted);
+  background: var(--w-line); padding: 2px 7px; border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+/* count */
+.widget.count .hero { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: var(--w-ink); line-height: 1; }
+.count-lbl { font-size: 14px; font-weight: 600; color: var(--w-ink2); margin-top: 8px; }
+.count-cond { font-size: 12px; color: var(--w-muted); margin-top: 4px; }
+
+/* donut */
+.donut-wrap { display: flex; align-items: center; gap: 22px; }
+.donut { flex: none; }
+.donut-total { fill: var(--w-ink); }
+.donut-seg.seg-good { stroke: var(--w-good); }
+.donut-seg.seg-warn { stroke: var(--w-warn); }
+.donut-seg.seg-crit { stroke: var(--w-crit); }
+.donut-seg.seg-muted { stroke: #c9d0d8; }
+.legend { display: flex; flex-direction: column; gap: 11px; flex: 1; }
+.lg { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.lg-dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.lg-dot.seg-good { background: var(--w-good); }
+.lg-dot.seg-warn { background: var(--w-warn); }
+.lg-dot.seg-crit { background: var(--w-crit); }
+.lg-dot.seg-muted { background: #c9d0d8; }
+.lg-name { font-weight: 600; color: var(--w-ink2); }
+.lg-val { font-weight: 800; color: var(--w-ink); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* message banners */
+.msg { display: flex; gap: 13px; align-items: flex-start; border-radius: 16px; padding: 16px 17px; margin-top: 8px; }
+.msg.info { background: var(--w-info-soft); }
+.msg.warn { background: var(--w-warn-soft); }
+.msg.crit { background: var(--w-crit-soft); }
+.msg-ic { width: 26px; height: 26px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-size: 15px; font-weight: 800; }
+.msg.info .msg-ic { background: var(--w-info); }
+.msg.warn .msg-ic { background: var(--w-warn); }
+.msg.crit .msg-ic { background: var(--w-crit); }
+.msg-t { font-size: 14px; font-weight: 700; color: var(--w-ink); }
+.msg-d { font-size: 12.5px; color: var(--w-ink2); margin-top: 3px; line-height: 1.5; }
+
+/* empty / error state */
+.state { text-align: center; padding: 24px 12px; }
+.state-ic { width: 46px; height: 46px; border-radius: 16px; background: var(--w-line); display: grid; place-items: center; font-size: 20px; margin: 0 auto 12px; }
+.state-msg { font-size: 14px; font-weight: 700; color: var(--w-ink); }
+.state-hint { font-size: 12px; color: var(--w-muted); margin-top: 5px; overflow-wrap: anywhere; }
+
+/* assistant caption (plain, no bubble) + avatar */
+.message[data-role="assistant"] { align-items: flex-start; gap: 10px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 14px; background: var(--primary); }
+.msg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.cap { font-size: 14px; line-height: 1.55; color: var(--w-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* followups — primary에서 파생된 옅은 주황 배경(흰 카드와 구분) */
+.followups { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 2px; }
+.fu { font-size: 12px; font-weight: 600; color: var(--primary); border: 1px solid rgba(247, 98, 5, 0.18); background: var(--primary-soft); border-radius: 20px; padding: 6px 12px; }
+.fu:hover { background: #ffe4d3; border-color: rgba(247, 98, 5, 0.3); }

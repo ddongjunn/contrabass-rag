@@ -1,0 +1,8 @@
+{
+  "name": "contrabass-chat-widget",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
