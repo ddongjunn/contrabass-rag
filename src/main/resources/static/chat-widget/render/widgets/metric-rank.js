@@ -31,7 +31,7 @@ export function buildMetricRank(w) {
         h("span", {}, nameChildren),
         h("span", { className: "rk-val", text: r.display }),
       ]),
-      h("div", { className: "rk-track", attrs: { role: "img", "aria-label": `${r.instanceName} ${r.display}` } }, [
+      h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
         h("i", { className: sevClass(r.severity), attrs: { style: `width:${width.toFixed(0)}%` } }),
       ]),
     ];

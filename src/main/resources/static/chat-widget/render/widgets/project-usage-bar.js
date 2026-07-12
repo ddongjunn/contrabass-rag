@@ -12,7 +12,7 @@ function usageRow(row) {
       h("span", { className: "rk-nm", text: row.projectName }),
       h("span", { className: "rk-val", text: row.display }),
     ]),
-    h("div", { className: "rk-track", attrs: { role: "img", "aria-label": `${row.projectName} ${row.display}` } }, [
+    h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
       h("i", { className: cls, attrs: { style: `width:${width.toFixed(0)}%` } }),
     ]),
   ]);

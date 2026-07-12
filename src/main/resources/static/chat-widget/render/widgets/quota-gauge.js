@@ -12,7 +12,7 @@ function gaugeRow(item) {
       h("span", { className: "rk-nm", text: item.resource }),
       h("span", { className: "rk-val", text: item.display }),
     ]),
-    h("div", { className: "rk-track", attrs: { role: "img", "aria-label": `${item.resource} ${item.display}` } }, [
+    h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
       h("i", { className: cls, attrs: { style: `width:${width.toFixed(0)}%` } }),
     ]),
   ]);

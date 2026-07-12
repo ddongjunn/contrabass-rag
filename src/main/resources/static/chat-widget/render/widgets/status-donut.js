@@ -29,7 +29,7 @@ export function buildStatusDonut(w) {
     arcs.push(arc(seg, w.total, offset));
     offset += w.total > 0 ? (seg.count / w.total) * DONUT_CIRC : 0;
   }
-  const svg = h("svg", { ns: "svg", className: "donut", attrs: { viewBox: "0 0 42 42", width: "112", height: "112", role: "img", "aria-label": `${w.label} 상태 분포, 총 ${w.total}` } }, [
+  const svg = h("svg", { ns: "svg", className: "donut", attrs: { viewBox: "0 0 42 42", width: "112", height: "112", "aria-hidden": "true" } }, [
     h("circle", { ns: "svg", attrs: { cx: "21", cy: "21", r: String(R), fill: "none", "stroke-width": "7", stroke: "var(--line)" } }),
     ...arcs,
     h("text", { ns: "svg", className: "donut-total", text: String(w.total), attrs: { x: "21", y: "20.5", "text-anchor": "middle", "font-size": "8", "font-weight": "800" } }),
