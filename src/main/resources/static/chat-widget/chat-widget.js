@@ -1,3 +1,6 @@
+import { mount } from "./render/dom.js";
+import { buildWidget } from "./render/dispatch.js";
+
 (function () {
   const storage = {
     userId: "contrabass.chat.userId",
@@ -95,6 +98,8 @@
         role: "assistant",
         content: payload.answer || "응답이 비어 있습니다.",
         sources: Array.isArray(payload.sources) ? payload.sources : [],
+        widgets: Array.isArray(payload.widgets) ? payload.widgets : [],
+        followups: Array.isArray(payload.followups) ? payload.followups : [],
       });
     } catch (error) {
       replaceMessage(loadingId, {
@@ -136,29 +141,81 @@
       row.dataset.role = message.role;
       if (message.error) row.dataset.error = "true";
 
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
+      if (message.role === "assistant") {
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.setAttribute("aria-hidden", "true");
+        avatar.textContent = "C";
+        row.append(avatar);
 
-      if (message.loading) {
-        const typing = document.createElement("div");
-        typing.className = "typing";
-        typing.setAttribute("aria-label", "응답 생성 중");
-        typing.append(document.createElement("span"));
-        typing.append(document.createElement("span"));
-        typing.append(document.createElement("span"));
-        bubble.append(typing);
-      } else {
-        bubble.textContent = message.content;
-        if (message.sources && message.sources.length > 0) {
-          bubble.append(renderSources(message.sources));
+        const body = document.createElement("div");
+        body.className = "msg-body";
+
+        const widgets = Array.isArray(message.widgets) ? message.widgets : [];
+
+        if (message.loading) {
+          body.append(renderTyping());
+        } else if (widgets.length > 0) {
+          const cap = document.createElement("div");
+          cap.className = "cap";
+          cap.textContent = message.content;
+          body.append(cap);
+          widgets.forEach((w) => {
+            const node = buildWidget(w);
+            if (node) body.append(mount(node));
+          });
+        } else {
+          // 위젯 없음 → 기존 텍스트 버블 폴백
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.textContent = message.content;
+          if (message.sources && message.sources.length > 0) {
+            bubble.append(renderSources(message.sources));
+          }
+          body.append(bubble);
         }
+
+        if (!message.loading && Array.isArray(message.followups) && message.followups.length > 0) {
+          body.append(renderFollowups(message.followups));
+        }
+        row.append(body);
+      } else {
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = message.content;
+        row.append(bubble);
       }
 
-      row.append(bubble);
       messagesEl.append(row);
     });
 
     messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function renderTyping() {
+    const typing = document.createElement("div");
+    typing.className = "typing";
+    typing.setAttribute("aria-label", "응답 생성 중");
+    typing.append(document.createElement("span"));
+    typing.append(document.createElement("span"));
+    typing.append(document.createElement("span"));
+    return typing;
+  }
+
+  function renderFollowups(followups) {
+    const wrap = document.createElement("div");
+    wrap.className = "followups";
+    followups.forEach((text) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "fu";
+      chip.textContent = text;
+      chip.addEventListener("click", () => {
+        if (!state.pending) sendQuestion(text);
+      });
+      wrap.append(chip);
+    });
+    return wrap;
   }
 
   function renderSources(sources) {
