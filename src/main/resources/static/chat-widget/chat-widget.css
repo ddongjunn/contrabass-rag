@@ -1,3 +1,6 @@
+/* :host = shadow 호스트(임베드 시), :root = 라이트 DOM 폴백.
+   custom property는 :host에 선언하면 shadow 트리로 상속된다(:root는 shadow에서 매치 안 됨). */
+:host,
 :root {
   color-scheme: light;
   --page-bg: #f5f6f8;

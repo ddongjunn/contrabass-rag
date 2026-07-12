@@ -8,13 +8,25 @@ import { buildWidget } from "./render/dispatch.js";
     messages: "contrabass.chat.messages",
   };
 
-  const widget = document.querySelector(".chat-widget");
-  const launcher = document.querySelector(".chat-launcher");
-  const closeButton = document.querySelector("[data-chat-close]");
-  const form = document.querySelector("[data-chat-form]");
-  const input = document.querySelector("[data-chat-input]");
-  const messagesEl = document.querySelector("[data-chat-messages]");
-  const sendButton = document.querySelector(".send-button");
+  // Shadow DOM 마운트 — 외부 임베드 시 CSS/DOM 격리
+  const host = document.getElementById("contrabass-chat");
+  const shadow = host.attachShadow({ mode: "open" });
+
+  const styleLink = document.createElement("link");
+  styleLink.rel = "stylesheet";
+  styleLink.href = "./chat-widget.css";
+  shadow.append(styleLink);
+
+  const chrome = document.getElementById("cc-chrome");
+  shadow.append(chrome.content.cloneNode(true));
+
+  const widget = shadow.querySelector(".chat-widget");
+  const launcher = shadow.querySelector(".chat-launcher");
+  const closeButton = shadow.querySelector("[data-chat-close]");
+  const form = shadow.querySelector("[data-chat-form]");
+  const input = shadow.querySelector("[data-chat-input]");
+  const messagesEl = shadow.querySelector("[data-chat-messages]");
+  const sendButton = shadow.querySelector(".send-button");
 
   const state = {
     userId: getOrCreateId(storage.userId, "web-user"),

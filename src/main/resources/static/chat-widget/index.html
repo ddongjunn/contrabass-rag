@@ -4,7 +4,23 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CONTRABASS Chat</title>
-    <link rel="stylesheet" href="./chat-widget.css">
+    <style>
+      /* 호스트(데모) 페이지 전용 — 위젯 셸 스타일은 shadow root의 chat-widget.css가 소유 */
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, rgba(31, 123, 242, 0.06), transparent 44%), #f5f6f8;
+        color: #30353a;
+      }
+      .demo-surface { min-height: 100vh; display: grid; place-items: center; padding: 32px; }
+      .demo-mark {
+        border: 1px solid rgba(48, 53, 58, 0.12); border-radius: 8px; padding: 18px 22px;
+        background: rgba(255, 255, 255, 0.72); box-shadow: 0 10px 28px rgba(28, 36, 48, 0.08); color: #f36c21;
+      }
+      .demo-mark span { font-size: 14px; font-weight: 700; }
+    </style>
   </head>
   <body>
     <main class="demo-surface" aria-label="CONTRABASS chat widget">
@@ -13,40 +29,44 @@
       </div>
     </main>
 
-    <section class="chat-widget" data-open="false" aria-label="CONTRABASS assistant">
-      <button class="chat-launcher" type="button" aria-label="채팅 열기" aria-expanded="false">
-        <span class="launcher-glyph" aria-hidden="true"></span>
-        <span class="launcher-text">Chat</span>
-      </button>
+    <div id="contrabass-chat"></div>
 
-      <div class="chat-panel" role="dialog" aria-label="CONTRABASS assistant">
-        <header class="chat-header">
-          <div>
-            <p class="chat-kicker">CONTRABASS</p>
-            <h1>Assistant</h1>
-          </div>
-          <button class="icon-button" type="button" data-chat-close aria-label="채팅 닫기">
-            <span aria-hidden="true">×</span>
-          </button>
-        </header>
+    <template id="cc-chrome">
+      <section class="chat-widget" data-open="false" aria-label="CONTRABASS assistant">
+        <button class="chat-launcher" type="button" aria-label="채팅 열기" aria-expanded="false">
+          <span class="launcher-glyph" aria-hidden="true"></span>
+          <span class="launcher-text">Chat</span>
+        </button>
 
-        <div class="chat-messages" data-chat-messages aria-live="polite"></div>
+        <div class="chat-panel" role="dialog" aria-label="CONTRABASS assistant">
+          <header class="chat-header">
+            <div>
+              <p class="chat-kicker">CONTRABASS</p>
+              <h1>Assistant</h1>
+            </div>
+            <button class="icon-button" type="button" data-chat-close aria-label="채팅 닫기">
+              <span aria-hidden="true">×</span>
+            </button>
+          </header>
 
-        <form class="chat-form" data-chat-form>
-          <label class="sr-only" for="chat-input">질문</label>
-          <textarea
-            id="chat-input"
-            data-chat-input
-            rows="1"
-            maxlength="1000"
-            placeholder="질문을 입력하세요"
-          ></textarea>
-          <button class="send-button" type="submit" aria-label="전송">
-            전송
-          </button>
-        </form>
-      </div>
-    </section>
+          <div class="chat-messages" data-chat-messages aria-live="polite"></div>
+
+          <form class="chat-form" data-chat-form>
+            <label class="sr-only" for="chat-input">질문</label>
+            <textarea
+              id="chat-input"
+              data-chat-input
+              rows="1"
+              maxlength="1000"
+              placeholder="질문을 입력하세요"
+            ></textarea>
+            <button class="send-button" type="submit" aria-label="전송">
+              전송
+            </button>
+          </form>
+        </div>
+      </section>
+    </template>
 
     <script type="module" src="./chat-widget.js"></script>
   </body>
