@@ -493,5 +493,5 @@ textarea:focus-visible {
 
 /* followups — primary에서 파생된 옅은 주황 배경(흰 카드와 구분) */
 .followups { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 2px; }
-.fu { font-size: 12px; font-weight: 600; color: #c24e00; border: 1px solid rgba(247, 98, 5, 0.2); background: #ffe9d9; border-radius: 20px; padding: 6px 12px; }
-.fu:hover { background: #ffdcc5; border-color: rgba(247, 98, 5, 0.35); }
+.fu { font-size: 12px; font-weight: 600; color: var(--primary); border: 1px solid rgba(247, 98, 5, 0.18); background: var(--primary-soft); border-radius: 20px; padding: 6px 12px; }
+.fu:hover { background: #ffe4d3; border-color: rgba(247, 98, 5, 0.3); }
