@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>위젯 미리보기 (백엔드 없이 확인용)</title>
+    <link rel="stylesheet" href="./chat-widget.css">
+    <style>
+      body { background: #f7f8fa; padding: 24px; }
+      .preview-wrap { max-width: 460px; margin: 0 auto; }
+      .preview-wrap h1 { font-size: 16px; color: #191f28; margin: 0 0 4px; }
+      .preview-wrap p.note { font-size: 12px; color: #8b95a1; margin: 0 0 20px; }
+      .scenario { margin-bottom: 22px; }
+      .scenario > .label { font-size: 11px; font-weight: 700; color: #8b95a1; margin: 0 0 8px; }
+      /* 실제 채팅 렌더와 동일한 어시스턴트 행 모양 재현 */
+      .message[data-role="assistant"] { display: flex; }
+    </style>
+  </head>
+  <body>
+    <div class="preview-wrap">
+      <h1>챗봇 위젯 미리보기</h1>
+      <p class="note">백엔드 없이 목업 데이터로 6종 위젯 + 상태를 실제 렌더 코드로 그린 화면입니다.</p>
+      <div id="preview"></div>
+    </div>
+
+    <script type="module">
+      import { mount } from "./render/dom.js";
+      import { buildWidget } from "./render/dispatch.js";
+
+      // 각 위젯 타입을 대표하는 목업 응답 (widget-contract.d.ts 규격)
+      const scenarios = [
+        {
+          label: "metric_rank — CPU TopN (%)",
+          answer: "CPU 사용률이 높은 인스턴스 상위 4개예요.",
+          widgets: [{
+            type: "metric_rank", title: "CPU 사용률이 높은 인스턴스", unit: "%", window: "5m", promql: "topk(5, ...)", empty: false,
+            rows: [
+              { instanceName: "web-prod-07", projectName: "service-prod", value: 91.2, display: "91.2%", severity: "CRIT" },
+              { instanceName: "api-prod-02", projectName: "service-prod", value: 87.0, display: "87.0%", severity: "CRIT" },
+              { instanceName: "batch-11", projectName: "data-platform", value: 73.4, display: "73.4%", severity: "WARN" },
+              { instanceName: "cache-03", projectName: "service-prod", value: 61.9, display: "61.9%", severity: "GOOD" },
+            ],
+          }],
+          followups: ["web-prod-07 메모리는?", "네트워크 송신량 TopN"],
+        },
+        {
+          label: "metric_rank — 네트워크 (B/s, severity 없음 → 액센트색)",
+          answer: "네트워크 송신량이 높은 인스턴스입니다.",
+          widgets: [{
+            type: "metric_rank", title: "네트워크 송신량이 높은 인스턴스", unit: "B/s", window: "5m", promql: "topk(5, rate(...tx...[5m]))", empty: false,
+            rows: [
+              { instanceName: "gw-01", projectName: "network", value: 430182400, display: "410.25 MB/s", severity: null },
+              { instanceName: "proxy-02", projectName: "network", value: 244401152, display: "233.10 MB/s", severity: null },
+            ],
+          }],
+          followups: [],
+        },
+        {
+          label: "inventory_count — 개수 카드",
+          answer: "볼륨 342건입니다.",
+          widgets: [{ type: "inventory_count", label: "볼륨", total: 342, condition: "상태=available · 프로젝트 전체" }],
+          followups: ["스냅샷은 몇 개야?"],
+        },
+        {
+          label: "quota_gauge — 쿼터 (무제한 포함)",
+          answer: "service-prod 쿼터 사용 현황입니다.",
+          widgets: [{
+            type: "quota_gauge", items: [
+              { resource: "vCPU", used: 820, quota: 1000, ratio: 0.82, display: "820 / 1000", severity: "WARN" },
+              { resource: "메모리", used: 41984, quota: 51200, ratio: 0.82, display: "41 GB / 50 GB", severity: "WARN" },
+              { resource: "디스크", used: 6100, quota: 10000, ratio: 0.61, display: "6100 / 10000 GB", severity: "GOOD" },
+            ],
+          }],
+          followups: [],
+        },
+        {
+          label: "project_usage_bar — 프로젝트별 (무제한 포함)",
+          answer: "프로젝트별 vCPU 쿼터 사용률입니다.",
+          widgets: [{
+            type: "project_usage_bar", metric: "vCPU", unit: "%", rows: [
+              { projectName: "service-prod", value: 82.0, display: "82%", severity: "WARN" },
+              { projectName: "data-platform", value: 55.0, display: "55%", severity: "GOOD" },
+              { projectName: "AUTOTEST", value: null, display: "무제한", severity: null },
+            ],
+          }],
+          followups: [],
+        },
+        {
+          label: "status_donut — 상태 분포 도넛",
+          answer: "인스턴스 상태 분포입니다.",
+          widgets: [{
+            type: "status_donut", label: "인스턴스", total: 140, segments: [
+              { status: "ACTIVE", count: 128, level: "good" },
+              { status: "SHUTOFF", count: 9, level: "muted" },
+              { status: "ERROR", count: 3, level: "crit" },
+            ],
+          }],
+          followups: ["ERROR 인스턴스 목록"],
+        },
+        {
+          label: "threshold_banner — 임계 초과 배너",
+          answer: "CPU 임계(85%)를 초과한 노드가 2대 있습니다.",
+          widgets: [{ type: "threshold_banner", level: "CRIT", title: "임계 초과 노드 2대", detail: "CPU 85%↑ : web-prod-07, api-prod-02", count: 2 }],
+          followups: [],
+        },
+        {
+          label: "empty — 결과 0건",
+          answer: "현재 조건에 해당하는 인스턴스를 찾을 수 없습니다.",
+          widgets: [{ type: "metric_rank", title: "CPU 사용률이 높은 인스턴스", unit: "%", window: "5m", promql: "topk(5, ...)", empty: true, rows: [] }],
+          followups: [],
+        },
+        {
+          label: "위젯 없음 — 평문 폴백 (DOC/에러)",
+          answer: "해당 API는 Bearer 토큰을 Authorization 헤더에 넣어 호출합니다.",
+          widgets: [],
+          followups: [],
+        },
+      ];
+
+      const root = document.getElementById("preview");
+
+      for (const s of scenarios) {
+        const block = document.createElement("div");
+        block.className = "scenario";
+        const label = document.createElement("p");
+        label.className = "label";
+        label.textContent = s.label;
+        block.append(label);
+
+        // 실제 chat-widget.js renderMessages 와 동일한 구조로 렌더
+        const row = document.createElement("div");
+        row.className = "message";
+        row.dataset.role = "assistant";
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.setAttribute("aria-hidden", "true");
+        avatar.textContent = "C";
+        row.append(avatar);
+
+        const body = document.createElement("div");
+        body.className = "msg-body";
+
+        if (s.widgets.length > 0) {
+          const cap = document.createElement("div");
+          cap.className = "cap";
+          cap.textContent = s.answer;
+          body.append(cap);
+          s.widgets.forEach((w) => {
+            const node = buildWidget(w);
+            if (node) body.append(mount(node));
+          });
+        } else {
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.textContent = s.answer;
+          body.append(bubble);
+        }
+
+        if (s.followups.length > 0) {
+          const wrap = document.createElement("div");
+          wrap.className = "followups";
+          s.followups.forEach((t) => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "fu";
+            chip.textContent = t;
+            wrap.append(chip);
+          });
+          body.append(wrap);
+        }
+
+        row.append(body);
+        block.append(row);
+        root.append(block);
+      }
+    </script>
+  </body>
+</html>
