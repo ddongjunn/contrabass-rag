@@ -16,6 +16,9 @@ build/
 # --- OMC (plugin cache) ---
 .omc/
 
+# --- superpowers brainstorming scratch ---
+.superpowers/
+
 # --- OS ---
 .DS_Store
 
