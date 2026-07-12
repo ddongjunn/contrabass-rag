@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildStatusDonut, DONUT_CIRC } from "../render/widgets/status-donut.js";
+import { buildStatusDonut, DONUT_CIRC, DONUT_GAP } from "../render/widgets/status-donut.js";
 
 function findAll(node, cls, acc = []) {
   if (node.className && node.className.split(" ").includes(cls)) acc.push(node);
@@ -28,10 +28,10 @@ test("status_donut legend shows status and count", () => {
   assert.deepEqual(findAll(node, "lg-val").map((n) => n.text), ["128", "9", "3"]);
 });
 
-test("status_donut segment arc dasharray is count/total of circumference", () => {
+test("status_donut segment arc dasharray is count/total of circumference minus gap", () => {
   const node = buildStatusDonut(w);
   const arcs = findAll(node, "donut-seg");
-  const activeDash = (128 / 140) * DONUT_CIRC;
+  const activeDash = (128 / 140) * DONUT_CIRC - DONUT_GAP;
   assert.ok(arcs[0].attrs["stroke-dasharray"].startsWith(activeDash.toFixed(2)));
 });
 

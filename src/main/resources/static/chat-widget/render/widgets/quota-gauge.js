@@ -8,13 +8,11 @@ function gaugeRow(item) {
   const cls = unlimited ? "sev-muted" : (SEV_CLASS[item.severity] || "sev-accent");
   const width = unlimited ? 100 : clampPct(item.ratio * 100);
   return h("div", { className: "rk" }, [
-    h("div", { className: "rk-top" }, [
-      h("span", { className: "rk-nm", text: item.resource }),
-      h("span", { className: "rk-val", text: item.display }),
-    ]),
+    h("div", { className: "rk-name" }, [h("span", { className: "rk-nm", text: item.resource })]),
     h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
       h("i", { className: cls, attrs: { style: `width:${width.toFixed(0)}%` } }),
     ]),
+    h("span", { className: "rk-val", text: item.display }),
   ]);
 }
 

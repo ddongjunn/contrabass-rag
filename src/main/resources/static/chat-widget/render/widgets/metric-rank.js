@@ -7,7 +7,7 @@ function sevClass(sev) {
 }
 
 function sparkNode(spark) {
-  const w = 96, hgt = 26;
+  const w = 96, hgt = 22;
   const max = spark.reduce((m, v) => Math.max(m, v), 0) || 1;
   const min = spark.reduce((m, v) => Math.min(m, v), spark[0]);
   const span = max - min || 1;
@@ -24,16 +24,14 @@ export function buildMetricRank(w) {
   const max = w.rows.reduce((m, r) => Math.max(m, r.value), 0);
   const rows = w.rows.map((r) => {
     const width = Math.max(2, barWidth(r.value, max));
-    const nameChildren = [h("span", { className: "rk-nm", text: r.instanceName })];
-    if (r.projectName) nameChildren.push(h("span", { className: "rk-prj", text: r.projectName }));
+    const nameCell = [h("span", { className: "rk-nm", text: r.instanceName })];
+    if (r.projectName) nameCell.push(h("span", { className: "rk-prj", text: r.projectName }));
     const rowChildren = [
-      h("div", { className: "rk-top" }, [
-        h("span", {}, nameChildren),
-        h("span", { className: "rk-val", text: r.display }),
-      ]),
+      h("div", { className: "rk-name" }, nameCell),
       h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
         h("i", { className: sevClass(r.severity), attrs: { style: `width:${width.toFixed(0)}%` } }),
       ]),
+      h("span", { className: "rk-val", text: r.display }),
     ];
     if (Array.isArray(r.spark) && r.spark.length > 1) rowChildren.push(sparkNode(r.spark));
     return h("div", { className: "rk" }, rowChildren);

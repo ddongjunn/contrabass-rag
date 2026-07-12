@@ -8,13 +8,11 @@ function usageRow(row) {
   const cls = unlimited ? "sev-muted" : (SEV_CLASS[row.severity] || "sev-accent");
   const width = unlimited ? 100 : clampPct(row.value);
   return h("div", { className: "rk" }, [
-    h("div", { className: "rk-top" }, [
-      h("span", { className: "rk-nm", text: row.projectName }),
-      h("span", { className: "rk-val", text: row.display }),
-    ]),
+    h("div", { className: "rk-name" }, [h("span", { className: "rk-nm", text: row.projectName })]),
     h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
       h("i", { className: cls, attrs: { style: `width:${width.toFixed(0)}%` } }),
     ]),
+    h("span", { className: "rk-val", text: row.display }),
   ]);
 }
 

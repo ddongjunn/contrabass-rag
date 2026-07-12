@@ -417,16 +417,16 @@ textarea:focus-visible {
   margin-bottom: 14px;
 }
 
-/* rank / gauge / usage-bar rows */
-.rk { margin-bottom: 13px; }
+/* rank / gauge / usage-bar rows — 이름 · 막대 · 값 한 줄 레이아웃 */
+.rk { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 11px; }
 .rk:last-child { margin-bottom: 0; }
-.rk-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.rk-nm { font-size: 14px; font-weight: 700; color: var(--w-ink); }
-.rk-prj { font-size: 11px; font-weight: 500; color: var(--w-muted); margin-left: 7px; }
-.rk-val { font-size: 15px; font-weight: 800; color: var(--w-ink); font-variant-numeric: tabular-nums; }
-.rk-track { height: 8px; border-radius: 6px; background: var(--w-line); overflow: hidden; }
+.rk-name { flex: 0 0 auto; min-width: 76px; max-width: 132px; display: flex; flex-direction: column; overflow: hidden; }
+.rk-nm { font-size: 13px; font-weight: 600; color: var(--w-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-prj { font-size: 10.5px; font-weight: 400; color: var(--w-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-track { flex: 1 1 auto; height: 6px; border-radius: 6px; background: var(--w-line); overflow: hidden; }
 .rk-track > i { display: block; height: 100%; border-radius: 6px; }
-.rk-spark { display: block; width: 100%; height: 24px; margin-top: 6px; }
+.rk-val { flex: 0 0 auto; min-width: 40px; text-align: right; font-size: 13.5px; font-weight: 600; color: var(--w-ink); font-variant-numeric: tabular-nums; }
+.rk-spark { flex: 0 0 100%; display: block; width: 100%; height: 22px; margin-top: 2px; }
 .rk-spark polyline { stroke: var(--w-muted); }
 
 /* severity fills */
@@ -445,9 +445,9 @@ textarea:focus-visible {
 }
 
 /* count */
-.widget.count .hero { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; color: var(--w-ink); line-height: 1; }
-.count-lbl { font-size: 15px; font-weight: 700; color: var(--w-ink2); margin-top: 10px; }
-.count-cond { font-size: 12.5px; color: var(--w-muted); margin-top: 4px; }
+.widget.count .hero { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: var(--w-ink); line-height: 1; }
+.count-lbl { font-size: 14px; font-weight: 600; color: var(--w-ink2); margin-top: 8px; }
+.count-cond { font-size: 12px; color: var(--w-muted); margin-top: 4px; }
 
 /* donut */
 .donut-wrap { display: flex; align-items: center; gap: 22px; }
