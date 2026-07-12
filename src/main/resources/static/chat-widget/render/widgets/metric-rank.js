@@ -1,0 +1,49 @@
+import { h } from "../dom.js";
+import { barWidth } from "../format.js";
+
+const SEV_CLASS = { GOOD: "sev-good", WARN: "sev-warn", CRIT: "sev-crit" };
+function sevClass(sev) {
+  return SEV_CLASS[sev] || "sev-accent";
+}
+
+function sparkNode(spark) {
+  const w = 96, hgt = 26;
+  const max = spark.reduce((m, v) => Math.max(m, v), 0) || 1;
+  const min = spark.reduce((m, v) => Math.min(m, v), spark[0]);
+  const span = max - min || 1;
+  const step = spark.length > 1 ? w / (spark.length - 1) : w;
+  const pts = spark
+    .map((v, i) => `${(i * step).toFixed(1)},${(hgt - ((v - min) / span) * hgt).toFixed(1)}`)
+    .join(" ");
+  return h("svg", { ns: "svg", className: "rk-spark", attrs: { viewBox: `0 0 ${w} ${hgt}`, preserveAspectRatio: "none", "aria-hidden": "true" } }, [
+    h("polyline", { ns: "svg", attrs: { points: pts, fill: "none", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" } }),
+  ]);
+}
+
+export function buildMetricRank(w) {
+  const max = w.rows.reduce((m, r) => Math.max(m, r.value), 0);
+  const rows = w.rows.map((r) => {
+    const width = Math.max(2, barWidth(r.value, max));
+    const nameChildren = [h("span", { className: "rk-nm", text: r.instanceName })];
+    if (r.projectName) nameChildren.push(h("span", { className: "rk-prj", text: r.projectName }));
+    const rowChildren = [
+      h("div", { className: "rk-top" }, [
+        h("span", {}, nameChildren),
+        h("span", { className: "rk-val", text: r.display }),
+      ]),
+      h("div", { className: "rk-track", attrs: { role: "img", "aria-label": `${r.instanceName} ${r.display}` } }, [
+        h("i", { className: sevClass(r.severity), attrs: { style: `width:${width.toFixed(0)}%` } }),
+      ]),
+    ];
+    if (Array.isArray(r.spark) && r.spark.length > 1) rowChildren.push(sparkNode(r.spark));
+    return h("div", { className: "rk" }, rowChildren);
+  });
+  return h("div", { className: "card widget" }, [
+    h("div", { className: "eyebrow" }, [
+      h("span", { text: w.title }),
+      h("span", { text: `최근 ${w.window}` }),
+    ]),
+    ...rows,
+    h("div", { className: "wfoot" }, [h("span", { className: "prom", text: w.promql })]),
+  ]);
+}
