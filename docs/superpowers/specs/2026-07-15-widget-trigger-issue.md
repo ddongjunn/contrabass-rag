@@ -2,7 +2,7 @@
 
 - **작성일**: 2026-07-15 · **담당**: 신규 개발자 · **기한**: 이번 주(금)
 - **짝 이슈**: [#12](./2026-07-09-widgets-backend-issue.md) — 위젯 **값을 만드는 쪽**(1b 빌더 4종)은 그쪽에서 병행 진행 중
-- **상태**: 경계 확정. §4 시그니처만 미확정(7/15 중 확정 후 이 문서 갱신)
+- **상태**: 경계·계약 모두 확정(§4). **바로 착수 가능** — 빌더 본문은 목업이지만 시그니처가 고정이라 기다릴 것 없다.
 
 > 이 문서는 **목표·검증된 사실·경계**만 준다. 구현 방식은 자유.
 > 백엔드 전체 흐름은 [`README.md`](../../../README.md), 위젯 설계는 [#12](./2026-07-09-widgets-backend-issue.md) 참고.
@@ -63,20 +63,45 @@ sealed class ResourceExtraction {
 
 ---
 
-## 4. ⚠️ 계약 (미확정 — 7/15 중 확정)
+## 4. 계약 (✅ 확정 2026-07-15 — main 반영됨)
 
-**지금 1b 빌더는 인자를 안 받고 목업을 반환한다:**
+**규약: 조회는 서비스가, 변환은 빌더가.** `WidgetBuilder`는 Prometheus를 의존하지 않는 순수 변환 `object`로 남는다(1a와 동일). 즉 **네가 `DefaultResourceService`에서 조회해 빌더에 넣어준다.**
 
 ```kotlin
-fun quotaGauge(warnPercent: Int, critPercent: Int): QuotaGaugeWidget   // 목업
-fun statusDonut(): StatusDonutWidget                                    // 목업
-fun thresholdBanner(): ThresholdBannerWidget                            // 목업
-fun projectUsageBar(warnPercent: Int, critPercent: Int): ProjectUsageBarWidget  // 목업
+fun quotaGauge(inputs: List<QuotaInput>, warnPercent: Int, critPercent: Int): QuotaGaugeWidget
+fun statusDonut(samples: List<LabeledSample>, label: String = "인스턴스"): StatusDonutWidget
+fun thresholdBanner(count: Int, critPercent: Int, offenders: List<String> = emptyList()): ThresholdBannerWidget
+fun projectUsageBar(samples: List<LabeledSample>, metric: String, unit: String, warnPercent: Int, critPercent: Int): ProjectUsageBarWidget
 ```
 
-**실값이 붙으면 시그니처가 바뀐다.** 1a는 서비스가 Prometheus를 조회해 결과를 빌더에 **넣어주는** 패턴이기 때문이다(`metricRank(query, samples, promql, unit, warn, crit)`). 1b도 같은 패턴을 따르면 `samples`류 인자가 붙는다.
+**본문은 아직 목업이다**(값 만드는 쪽이 채우는 중). 시그니처는 안 바뀌니 지금 그대로 호출하면 되고, 나중에 목업이 실값으로 바뀔 뿐이다. **값 만드는 쪽을 기다릴 필요 없다.**
 
-→ **확정 전까지는 현재 목업 시그니처 그대로 호출해도 된다.** 목업이 곧 통합 스텁이라, 값 만드는 쪽을 안 기다리고 배선·테스트를 먼저 할 수 있다. 확정되면 이 문서 §4를 갱신하고 알려준다. 호출부 인자만 바뀌지 구조는 안 바뀐다.
+### 조회는 `queryLabeled()`로
+
+```kotlin
+interface PrometheusClient {
+    fun query(promql: String, unit: String): List<MetricSample>   // 기존(TopN 전용)
+    fun queryLabeled(promql: String): List<LabeledSample>          // 1b용 — 이걸 써라
+}
+
+data class LabeledSample(val labels: Map<String, String>, val value: Double)
+data class QuotaInput(val resource: String, val used: Double, val max: Double)  // max<0 = 무제한
+```
+
+> ⚠️ **`query()`를 1b에 쓰면 무조건 빈 리스트가 온다.** `query()`는 `instance_name`/`domain` 라벨이 없는 시계열을 파싱 단계에서 버리는데(TopN 전용으로 만들어짐), 1b 쿼리 결과는 그 라벨이 없다 — `status_donut`은 `{status:"ACTIVE"}`, 쿼터류는 `{tenant:"..."}`, `threshold_banner`는 라벨 없는 스칼라. 그래서 `queryLabeled()`를 추가했다. 디버깅 때 헤매기 쉬운 지점이라 미리 박아둔다.
+
+### 어떤 쿼리를 넣나
+
+검증된 PromQL은 [#12 §3](./2026-07-09-widgets-backend-issue.md) 표에 있다(라이브 검증 완료). 요약하면:
+
+| 위젯 | 쿼리 | 넘길 것 |
+|---|---|---|
+| `status_donut` | `count by(status)(openstack_nova_server_status)` | 결과 그대로 → `samples` |
+| `threshold_banner` | `count( <CPU 사용률 식> > {crit} )` | `.firstOrNull()?.value?.toInt() ?: 0` → `count` |
+| `quota_gauge` | `openstack_nova_limits_{vcpus,memory}_{max,used}`, `openstack_cinder_limits_volume_{max,used}_gb` | `labels["tenant"]`로 max/used 짝지어 `QuotaInput` |
+| `project_usage_bar` | `(openstack_nova_limits_vcpus_used / openstack_nova_limits_vcpus_max) * 100` | 결과 그대로 → `samples` (tenant 라벨 보존) |
+
+임계값 `{crit}`은 `app.resource.severity.crit-percent`에서 읽어라(하드코딩 금지).
 
 ---
 
