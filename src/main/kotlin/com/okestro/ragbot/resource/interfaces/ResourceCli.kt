@@ -46,6 +46,9 @@ fun main() {
 
         when (val result = extractor.extract(listOf(ConversationMessage(Role.USER, line)))) {
             is ResourceExtraction.NeedsClarification -> println("→ [되물음] ${result.message}")
+            // STATUS/THRESHOLD는 분류만 확인한다 — 실제 조회·위젯은 statusCli 또는 실 앱에서 본다.
+            is ResourceExtraction.StatusResolved -> println("→ [추출] target=STATUS (상태 분포)")
+            is ResourceExtraction.ThresholdResolved -> println("→ [추출] target=THRESHOLD (임계 초과)")
             is ResourceExtraction.Resolved -> {
                 val q = result.query
                 println("→ [추출] metric=${q.metric}  sort=${q.sort}  topN=${q.topN}  window=${q.window}  project=${q.project ?: "(전체)"}  instance=${q.instanceName ?: "(전체)"}")

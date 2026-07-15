@@ -19,11 +19,10 @@ class DefaultResourceService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(history: List<ConversationMessage>): ResourceService.Result {
-        tempStatusDonut(history)?.let { return it }
-        tempThresholdBanner(history)?.let { return it }
-
         return when (val extraction = extractor.extract(history)) {
             is ResourceExtraction.NeedsClarification -> ResourceService.Result(extraction.message, needsClarification = true)
+            is ResourceExtraction.StatusResolved -> statusDonut()
+            is ResourceExtraction.ThresholdResolved -> thresholdBanner()
             is ResourceExtraction.Resolved -> {
                 val query = extraction.query
                 val entry = catalog.lookup(query.metric)
@@ -58,44 +57,28 @@ class DefaultResourceService(
         }
     }
 
-    // ── TEMP(#21): 1b 위젯 임시 키워드 배선 ─────────────────────────────────────
+    // ── STATUS / THRESHOLD 트랙 ────────────────────────────────────────────────
     //
-    // 삭제 조건: #21에서 추출기/라우터에 해당 의도가 들어오면 이 블록(+ 짝 테스트
-    //   DefaultResourceServiceStatusTest/ThresholdTest)을 통째로 지우고 ResourceExtraction 갈래로 옮긴다.
-    //
-    // 왜 LLM이 아니라 임의 if인가:
-    //   1) 불변식 2 — 의도 하나 붙이자고 추출기 프롬프트·스키마를 키우면 요청당 토큰이 는다.
-    //   2) 충돌 회피 — ResourcePrompts/LlmMetricQueryExtractor는 #21 소유다. 지금 손대면 겹친다.
-    //   3) 되돌리기 — if 한 덩어리는 지우면 끝이지만 프롬프트는 되돌리기가 지저분하다.
-    //
-    // 한계: 키워드 매칭이라 "지금 몇 대나 죽어있어?" 같은 변형은 못 잡는다. 그건 #21의 몫.
-    private val statusKeywords = listOf("상태 분포", "상태분포", "상태별", "인스턴스 상태")
+    // 둘 다 쿼리가 고정이라 조건 추출이 없다 — 추출기는 target만 정하고 나머지는 여기서 결정한다.
+    // (임계값은 질문이 아니라 application.yml에서 온다 — 불변식 7)
 
     private val statusPromql = "count by(status)(openstack_nova_server_status)"
-
-    private val thresholdKeywords = listOf("임계", "초과", "위험한", "높은 거 있")
 
     /** CPU 사용률 식(ratio_topk 내부와 동일) — 임계 비교용. */
     private fun cpuPercentExpr() =
         "(sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) " +
             "/ on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100)"
 
-    private fun tempStatusDonut(history: List<ConversationMessage>): ResourceService.Result? {
-        val question = question(history) ?: return null
-        if (statusKeywords.none { question.contains(it) }) return null
-
-        log.info("resource-status-temp promql=\"{}\"", statusPromql)
+    private fun statusDonut(): ResourceService.Result {
+        log.info("resource-status promql=\"{}\"", statusPromql)
         val widget = WidgetBuilder.statusDonut(prometheus.queryLabeled(statusPromql))
         return ResourceService.Result(StatusAnswerTemplate.render(widget), widgets = listOf(widget))
     }
 
-    private fun tempThresholdBanner(history: List<ConversationMessage>): ResourceService.Result? {
-        val question = question(history) ?: return null
-        if (thresholdKeywords.none { question.contains(it) }) return null
-
+    private fun thresholdBanner(): ResourceService.Result {
         val crit = properties.resource.severity.critPercent
         val countPromql = "count(${cpuPercentExpr()} > $crit)"
-        log.info("resource-threshold-temp promql=\"{}\"", countPromql)
+        log.info("resource-threshold promql=\"{}\"", countPromql)
 
         // ⚠️ PromQL count()는 매칭 0건이면 0이 아니라 빈 벡터를 준다 → firstOrNull ?: 0.
         //    실측(2026-07-15): 최고 CPU 34.78%라 crit=85 초과 0건 → 빈 벡터가 흔한 경로다.
@@ -113,7 +96,4 @@ class DefaultResourceService(
         val widget = WidgetBuilder.thresholdBanner(count, crit, offenders)
         return ResourceService.Result(ThresholdAnswerTemplate.render(widget, crit), widgets = listOf(widget))
     }
-
-    private fun question(history: List<ConversationMessage>): String? =
-        history.lastOrNull { it.role == ConversationMessage.Role.USER }?.content
 }

@@ -22,21 +22,18 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * TEMP(#21): threshold_banner 임시 키워드 배선. #21에서 의도 분류가 완성되면 대상 코드와 함께 삭제.
+ * THRESHOLD 트랙 — 추출기가 ThresholdResolved를 냈을 때 서비스가 뭘 하는가.
+ * "그 질문이 THRESHOLD로 분류되는가"는 별개 관심사다(MetricExtractionAccuracyTest, 실 OpenAI).
  */
 class DefaultResourceServiceThresholdTest {
 
     private val props = AppProperties()   // severity 기본값: warn=70, crit=85
 
-    private class SpyExtractor : MetricQueryExtractor {
-        var called = false
-        override fun extract(history: List<ConversationMessage>): ResourceExtraction {
-            called = true
-            return ResourceExtraction.NeedsClarification("추출기 호출됨")
-        }
+    private class FixedExtractor(private val out: ResourceExtraction) : MetricQueryExtractor {
+        override fun extract(history: List<ConversationMessage>): ResourceExtraction = out
     }
 
-    /** promql별로 응답을 정해 돌려주는 스텁. count 쿼리와 offenders 쿼리를 구분한다. */
+    /** promql별로 응답을 정하는 스텁. count 쿼리와 offenders 쿼리를 구분한다. */
     private class MapPrometheus(private val byQuery: (String) -> List<LabeledSample>) : PrometheusClient {
         val seen = mutableListOf<String>()
         override fun query(promql: String, unit: String): List<MetricSample> = emptyList()
@@ -46,15 +43,14 @@ class DefaultResourceServiceThresholdTest {
         }
     }
 
-    private fun ask(question: String, prom: PrometheusClient, extractor: MetricQueryExtractor = SpyExtractor()) =
-        DefaultResourceService(extractor, MetricCatalog(props), prom, emptyProvider(), props)
-            .handle(listOf(ConversationMessage(Role.USER, question)))
+    private fun handle(prom: PrometheusClient, p: AppProperties = props) =
+        DefaultResourceService(FixedExtractor(ResourceExtraction.ThresholdResolved), MetricCatalog(p), prom, emptyProvider(), p)
+            .handle(listOf(ConversationMessage(Role.USER, "임계 넘은 노드 있어?")))
 
     @Test
     fun `빈 벡터면 0대 - PromQL count()는 매칭 0건에 0이 아니라 빈 벡터를 준다`() {
         // 실측(2026-07-15): 최고 CPU 34.78% → crit=85 초과 0건 → result:[] 가 실제로 흔한 경로다.
-        val prom = MapPrometheus { emptyList() }
-        val out = ask("임계 넘은 노드 있어?", prom)
+        val out = handle(MapPrometheus { emptyList() })
 
         val w = assertIs<ThresholdBannerWidget>(out.widgets.single())
         assertEquals(0, w.count)
@@ -68,14 +64,15 @@ class DefaultResourceServiceThresholdTest {
     fun `초과가 있으면 CRIT과 인스턴스명 - 라벨은 domain이다`() {
         // ⚠️ 실측(2026-07-15): 식이 by(domain)으로 집계하므로 결과 라벨은 domain뿐이다.
         //    instance_name 보유 0/9. 설계 TODO엔 instance_name이라 적혀 있었으나 사실과 다르다.
-        val prom = MapPrometheus { q ->
-            if (q.startsWith("count(")) listOf(LabeledSample(emptyMap(), 2.0))
-            else listOf(
-                LabeledSample(mapOf("domain" to "instance-00003906"), 91.2),
-                LabeledSample(mapOf("domain" to "instance-00003909"), 88.4),
-            )
-        }
-        val out = ask("임계 초과한 인스턴스 알려줘", prom)
+        val out = handle(
+            MapPrometheus { q ->
+                if (q.startsWith("count(")) listOf(LabeledSample(emptyMap(), 2.0))
+                else listOf(
+                    LabeledSample(mapOf("domain" to "instance-00003906"), 91.2),
+                    LabeledSample(mapOf("domain" to "instance-00003909"), 88.4),
+                )
+            }
+        )
 
         val w = assertIs<ThresholdBannerWidget>(out.widgets.single())
         assertEquals(2, w.count)
@@ -86,18 +83,19 @@ class DefaultResourceServiceThresholdTest {
     @Test
     fun `instance_name 라벨이 있으면 그걸 우선한다`() {
         // MetricSample.toSample과 같은 우선순위(instance_name ?: domain) — 소스가 바뀌어도 견디게.
-        val prom = MapPrometheus { q ->
-            if (q.startsWith("count(")) listOf(LabeledSample(emptyMap(), 1.0))
-            else listOf(LabeledSample(mapOf("instance_name" to "web-prod-07", "domain" to "instance-0001"), 91.2))
-        }
-        val w = assertIs<ThresholdBannerWidget>(ask("임계 초과", prom).widgets.single())
-        assertEquals("CPU 85%↑ : web-prod-07", w.detail)
+        val out = handle(
+            MapPrometheus { q ->
+                if (q.startsWith("count(")) listOf(LabeledSample(emptyMap(), 1.0))
+                else listOf(LabeledSample(mapOf("instance_name" to "web-prod-07", "domain" to "instance-0001"), 91.2))
+            }
+        )
+        assertEquals("CPU 85%↑ : web-prod-07", assertIs<ThresholdBannerWidget>(out.widgets.single()).detail)
     }
 
     @Test
     fun `초과 0대면 offenders 쿼리를 아예 안 쏜다 - 불필요한 조회 금지`() {
         val prom = MapPrometheus { emptyList() }
-        ask("임계 넘은 노드 있어?", prom)
+        handle(prom)
         assertEquals(1, prom.seen.size, "count 쿼리 1방이면 충분한데 더 쐈다: ${prom.seen}")
     }
 
@@ -107,25 +105,10 @@ class DefaultResourceServiceThresholdTest {
             resource = AppProperties.Resource(severity = AppProperties.Resource.Severity(warnPercent = 50, critPercent = 60)),
         )
         val prom = MapPrometheus { emptyList() }
-        val out = DefaultResourceService(SpyExtractor(), MetricCatalog(custom), prom, emptyProvider(), custom)
-            .handle(listOf(ConversationMessage(Role.USER, "임계 넘은 노드 있어?")))
+        val out = handle(prom, custom)
 
         assertTrue(prom.seen.single().contains("> 60"), prom.seen.single())
         assertTrue(out.answer.contains("60%"), out.answer)
-    }
-
-    @Test
-    fun `임계 질문은 추출기를 안 부른다 - LLM 토큰 0`() {
-        val spy = SpyExtractor()
-        ask("임계 넘은 노드 있어?", MapPrometheus { emptyList() }, spy)
-        assertTrue(!spy.called)
-    }
-
-    @Test
-    fun `무관한 질문은 기존 경로로`() {
-        val spy = SpyExtractor()
-        ask("볼륨 몇 개야?", MapPrometheus { emptyList() }, spy)
-        assertTrue(spy.called)
     }
 
     private fun emptyProvider(): ObjectProvider<InventoryRepository> =
