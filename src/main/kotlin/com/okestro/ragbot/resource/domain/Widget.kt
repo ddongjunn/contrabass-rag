@@ -63,11 +63,12 @@ data class ProjectUsageBarWidget(
 
 data class ProjectUsageRow(val projectName: String, val value: Double, val display: String, val severity: Severity?)
 
-/** cb_common GROUP BY status. */
+/** Prometheus count by(status) 집계. */
 data class StatusDonutWidget(
     val label: String,          // "인스턴스"
     val total: Int,
     val segments: List<StatusSegment>,
+    val empty: Boolean = false, // 결과 0건 → 빈 상태 카드(프론트 dispatch가 widget.empty로 분기)
 ) : Widget { override val type = "status_donut" }
 
 data class StatusSegment(val status: String, val count: Int, val level: String)  // level: good|warn|crit|muted

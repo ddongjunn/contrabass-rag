@@ -93,7 +93,8 @@ export interface StatusDonutWidget {
   type: "status_donut";
   label: string;             // "인스턴스"
   total: number;
-  segments: StatusSegment[];
+  segments: StatusSegment[]; // count 내림차순(동수는 status 이름순) — 서버가 정렬해 보냄
+  empty: boolean;            // true면 결과 0건 → 빈 상태 카드
 }
 export interface StatusSegment {
   status: string;            // "ACTIVE" | "SHUTOFF" | "ERROR" ...

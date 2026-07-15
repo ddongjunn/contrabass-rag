@@ -141,24 +141,37 @@ object WidgetBuilder {
             ),
         )
 
-    /** @param samples queryLabeled("count by(status)(openstack_nova_server_status)") 결과. labels["status"] 사용. */
-    fun statusDonut(samples: List<LabeledSample>, label: String = "인스턴스"): StatusDonutWidget =
-        // TODO(new-dev): 아래 목업을 실제 집계로 교체.
-        //  ── 검증된 쿼리(라이브 2026-07-09): count by(status)(openstack_nova_server_status)
-        //     → status 라벨별 개수. 실측: ACTIVE=116, SHUTOFF=2, ERROR=1. (cb_common GROUP BY 대신 이게 더 단순 — DB 불필요)
-        //  ── 구현: samples.map { it.labels["status"] to it.value.toInt() } → segment. total=합.
-        //  ── ⚠️ level은 **소문자** "good"|"warn"|"crit"|"muted" (프론트 status-donut.js의 LEVEL_CLASS가 소문자 키만
-        //     가짐 — Severity.name(대문자)을 넣으면 전부 seg-muted 회색으로 죽는다). ACTIVE→good, ERROR→crit,
-        //     SHUTOFF/PAUSED→muted.
-        StatusDonutWidget(
-            label = "인스턴스",
-            total = 140,
-            segments = listOf(
-                StatusSegment("ACTIVE", 128, "good"),
-                StatusSegment("SHUTOFF", 9, "muted"),
-                StatusSegment("ERROR", 3, "crit"),
-            ),
+    /**
+     * status 분포 → status_donut 위젯(REAL).
+     *
+     * 호출부는 `queryLabeled("count by(status)(openstack_nova_server_status)")` 결과를 그대로 넘긴다.
+     * (cb_common GROUP BY 대신 Prometheus가 더 단순 — DB 불필요. 라이브 검증 2026-07-09)
+     *
+     * @param samples labels["status"]별 개수. status 라벨이 없는 샘플은 제외한다.
+     */
+    fun statusDonut(samples: List<LabeledSample>, label: String = "인스턴스"): StatusDonutWidget {
+        val segments = samples
+            .mapNotNull { s -> s.labels["status"]?.let { it to s.value.toInt() } }
+            // Prometheus 결과 순서는 보장되지 않는다 — 새로고침마다 도넛이 재배열되지 않도록 고정
+            .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first })
+            .map { (status, count) -> StatusSegment(status, count, levelForStatus(status)) }
+        return StatusDonutWidget(
+            label = label,
+            total = segments.sumOf { it.count },
+            segments = segments,
+            empty = segments.isEmpty(),
         )
+    }
+
+    /**
+     * 도넛 세그먼트 색. **소문자**여야 한다 — 프론트 status-donut.js의 LEVEL_CLASS가 소문자 키만
+     * 가져서 Severity.name(대문자)을 넣으면 전부 seg-muted 회색으로 죽는다(계약: DonutLevel).
+     */
+    private fun levelForStatus(status: String): String = when (status.uppercase()) {
+        "ACTIVE" -> "good"
+        "ERROR" -> "crit"
+        else -> "muted"   // SHUTOFF·PAUSED·전이 상태 등
+    }
 
     /**
      * @param count 임계 초과 대수. 쿼리 결과가 라벨 없는 스칼라라 서비스가 Int로 넘긴다.
