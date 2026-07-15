@@ -12,6 +12,7 @@ import com.okestro.ragbot.resource.domain.InventoryFilters
 import com.okestro.ragbot.resource.domain.InventoryKind
 import com.okestro.ragbot.resource.domain.InventoryQuery
 import com.okestro.ragbot.resource.domain.InventoryResult
+import com.okestro.ragbot.resource.domain.LabeledSample
 import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import org.springframework.beans.factory.ObjectProvider
@@ -30,6 +31,7 @@ class DefaultResourceServiceInventoryTest {
     private val history = listOf(ConversationMessage(Role.USER, "질문"))
     private val emptyPrometheus = object : PrometheusClient {
         override fun query(promql: String, unit: String): List<MetricSample> = emptyList()
+        override fun queryLabeled(promql: String): List<LabeledSample> = emptyList()
     }
 
     private fun service(extraction: ResourceExtraction, repo: InventoryRepository?): DefaultResourceService {

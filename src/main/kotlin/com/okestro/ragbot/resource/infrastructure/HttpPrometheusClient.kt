@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.resource.application.PrometheusClient
+import com.okestro.ragbot.resource.domain.LabeledSample
 import com.okestro.ragbot.resource.domain.MetricSample
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
@@ -37,6 +38,21 @@ class HttpPrometheusClient(
     @Retry(name = "prometheus")
     @CircuitBreaker(name = "prometheus")
     override fun query(promql: String, unit: String): List<MetricSample> {
+        val samples = fetch(promql).mapNotNull { it.toSample(unit) }
+        log.info("prometheus-result count={}", samples.size)
+        return samples
+    }
+
+    @Retry(name = "prometheus")
+    @CircuitBreaker(name = "prometheus")
+    override fun queryLabeled(promql: String): List<LabeledSample> {
+        val samples = fetch(promql).mapNotNull { it.toLabeled() }
+        log.info("prometheus-labeled-result count={}", samples.size)
+        return samples
+    }
+
+    /** instant 조회 + 응답 봉투 검사까지 공통. 시계열을 라벨째 그대로 돌려준다. */
+    private fun fetch(promql: String): List<PrometheusResponse.Result> {
         log.info("prometheus-query promql=\"{}\"", promql)
         val start = System.nanoTime()
 
@@ -55,9 +71,8 @@ class HttpPrometheusClient(
             return emptyList()
         }
 
-        val samples = response.data.result.mapNotNull { it.toSample(unit) }
-        log.info("prometheus-result latencyMs={} count={}", latencyMs, samples.size)
-        return samples
+        log.info("prometheus-series latencyMs={} count={}", latencyMs, response.data.result.size)
+        return response.data.result
     }
 
     companion object {
@@ -99,6 +114,12 @@ class HttpPrometheusClient(
                     unit = unit,
                     projectName = metric["project_name"],
                 )
+            }
+
+            /** 라벨을 통째로 보존한다. 라벨 없는 스칼라(count 등)도 metric={}로 살아남는다. */
+            fun toLabeled(): LabeledSample? {
+                val rawValue = value.getOrNull(1)?.toString()?.toDoubleOrNull() ?: return null
+                return LabeledSample(labels = metric, value = rawValue)
             }
         }
     }
