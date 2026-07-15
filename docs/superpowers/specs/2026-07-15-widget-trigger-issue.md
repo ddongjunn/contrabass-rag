@@ -2,7 +2,9 @@
 
 - **작성일**: 2026-07-15 · **담당**: 신규 개발자 · **기한**: 이번 주(금)
 - **짝 이슈**: [#12](./2026-07-09-widgets-backend-issue.md) — 위젯 **값을 만드는 쪽**(1b 빌더 4종)은 그쪽에서 병행 진행 중
-- **상태**: 경계·계약 모두 확정(§4). **바로 착수 가능** — 빌더 본문은 목업이지만 시그니처가 고정이라 기다릴 것 없다.
+- **상태**: 경계·계약 확정. **바로 착수 가능.**
+- **⚠️ 2026-07-15 범위 변경**: 일정이 당겨져 `status_donut`은 우리가 끝냈다(임시 배선 포함). 네 범위는
+  **트리거 3종(`quota_gauge`·`threshold_banner`·`project_usage_bar`) + 임시 배선 대체** — **§3 먼저 읽어라.**
 
 > 이 문서는 **목표·검증된 사실·경계**만 준다. 구현 방식은 자유.
 > 백엔드 전체 흐름은 [`README.md`](../../../README.md), 위젯 설계는 [#12](./2026-07-09-widgets-backend-issue.md) 참고.
@@ -19,8 +21,8 @@
 |---|---|---|
 | "CPU 높은 VM" | `metricRank` | ✅ 이미 동작 |
 | "볼륨 몇 개?" | `inventoryCount` | ✅ 이미 동작 |
+| "인스턴스 상태 분포" | `statusDonut` | ⚠️ **임시 배선으로 동작** — §3.1 읽을 것 |
 | "쿼터 얼마나 썼어?" | `quotaGauge` | ❌ **트리거 없음** |
-| "인스턴스 상태 분포" | `statusDonut` | ❌ **트리거 없음** |
 | "임계 넘은 노드 있어?" | `thresholdBanner` | ❌ **트리거 없음** |
 | "프로젝트별 사용률" | `projectUsageBar` | ❌ **트리거 없음** |
 
@@ -50,16 +52,60 @@ sealed class ResourceExtraction {
 
 ## 3. 경계 (누가 뭘 건드리나 — 이거만 지키면 안 밟힌다)
 
+> **🔴 2026-07-15 갱신 — 읽고 시작할 것.** 일정이 당겨져서(이번 주 금요일) 우리가 `status_donut`을
+> 끝까지 밀었다. 아래가 달라진 점이다. 이 문단이 최신이고, 충돌을 피하려면 여기부터 봐야 한다.
+
+### 3.1 `status_donut`은 이미 동작한다 — 만들지 말고 **레퍼런스로 읽어라**
+
+우리가 값·평문·배선까지 끝냈다(PR #24). 실 챗 화면에서 실 OpenAI + 실 Prometheus로 확인 완료.
+
+- `WidgetBuilder.statusDonut()` — 실구현(목업 아님). 테스트 7건.
+- `StatusAnswerTemplate` — 평문 answer. **answer 템플릿은 우리가 가져갔다**(§3.2).
+- `DefaultResourceService.tempStatusDonut()` — **임시 키워드 `if`. 네가 지울 대상이다.**
+
+**⚠️ 이 임시 배선이 네 작업과 만나는 지점이다.** `DefaultResourceService`에 `// TEMP(#21)` 주석이 붙은
+블록이 있다. LLM이 아니라 **키워드 `if`로 단락**시킨 것이고, 이유는 (1) 의도 하나 붙이자고 추출기 프롬프트를
+키우면 요청당 토큰이 늘고(불변식 2), (2) `ResourcePrompts`/`LlmMetricQueryExtractor`가 **네 소유라 충돌**하기
+때문이다.
+
+→ **네가 할 일**: 추출기에 "상태 분포" 의도를 제대로 넣고, 그 `TEMP` 블록과 짝 테스트
+(`DefaultResourceServiceStatusTest`)를 **통째로 삭제**한 뒤 `ResourceExtraction` 갈래로 옮겨라.
+키워드 매칭이라 "지금 몇 대나 죽어있어?" 같은 변형을 못 잡는 게 정확히 네가 고칠 부분이다.
+
+### 3.2 answer 템플릿은 우리 몫
+
+위젯마다 평문 answer가 필요한데(불변식: 항상 함께 반환) 이게 원래 어느 쪽 경계에도 없었다. 위젯과 같은
+데이터를 문장으로 바꾸는 순수 변환이라 **우리가 가져간다.** `StatusAnswerTemplate`가 레퍼런스 — 숫자
+드리프트를 막으려고 조회 결과를 다시 세지 않고 **위젯이 계산한 total/segments를 그대로 읽는다.**
+`quota_gauge`·`threshold_banner`·`project_usage_bar`의 answer도 우리가 만든다. 너는 부르기만 해라.
+
+### 3.3 지금 우리가 만지고 있는 파일 (건드리지 말 것)
+
+`WidgetBuilder.kt`, `PrometheusClient`/`HttpPrometheusClient`, `Widget.kt`, `*AnswerTemplate.kt`.
+`threshold_banner` 작업 중이라 이번 주 내내 움직인다.
+
+### 3.4 그래서 네 실질 범위
+
+`quota_gauge` · `threshold_banner` · `project_usage_bar` **트리거 3종** + `status_donut` 임시 배선을
+제대로 된 의도 분류로 **대체**. 빌더 본문은 우리가 채우니 목업이어도 그냥 부르면 된다(§4).
+
+---
+
+### 3.5 파일 경계표
+
 | | 파일 | 담당 |
 |---|---|---|
 | **부르는 쪽 (이 이슈)** | `resource/domain/ResourceExtraction.kt` (갈래 추가) | **너** |
 | | `resource/application/ResourcePrompts.kt` (프롬프트·스키마) | **너** |
 | | `resource/application/LlmMetricQueryExtractor.kt` (새 갈래 파싱) | **너** |
-| | `resource/application/DefaultResourceService.kt` (`when` 분기 → 빌더 호출) | **너** |
+| | `resource/application/DefaultResourceService.kt` (`when` 분기 → 빌더 호출) | **너** — 단, `TEMP(#21)` 블록은 우리가 넣었다(§3.1). 지우는 것도 너. |
 | **값 만드는 쪽 (#12)** | `resource/application/WidgetBuilder.kt` (빌더 내부) | 우리 |
 | | `PrometheusClient` / `HttpPrometheusClient` (쿼리) | 우리 |
+| | `resource/domain/Widget.kt` (위젯 타입) | 우리 |
+| | `resource/application/*AnswerTemplate.kt` (평문 답변) | 우리 (§3.2) |
 
-접점은 **`WidgetBuilder` 메서드 시그니처 하나**다. 그 외엔 파일이 안 겹친다.
+접점은 **`WidgetBuilder` 메서드 시그니처 하나**다. 그 외엔 파일이 안 겹친다 —
+`DefaultResourceService`의 `TEMP` 블록만 예외이고, 그건 네가 지우면 사라진다.
 
 ---
 
