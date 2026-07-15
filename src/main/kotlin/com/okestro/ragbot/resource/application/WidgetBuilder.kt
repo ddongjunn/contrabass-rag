@@ -26,8 +26,8 @@ import com.okestro.ragbot.resource.domain.ThresholdBannerWidget
  */
 object WidgetBuilder {
 
-    /** project_usage_bar 표시 상한. 실측 테넌트 27개(무제한 제외)를 다 그리면 채팅창이 도배된다. */
-    private const val PROJECT_USAGE_TOP_N = 10
+    /** 배너 detail에 나열할 인스턴스 이름 상한. 표시용 상수라 튜닝값이 아니다. */
+    private const val BANNER_NAME_LIMIT = 5
 
     private val METRIC_LABEL = mapOf(
         MetricPattern.INSTANCE_CPU        to "CPU 사용률",
@@ -102,12 +102,25 @@ object WidgetBuilder {
         }
     }
 
-    /** 쿼터 한 항목 변환. quota<0(무제한) → quota/ratio/severity null, display "N / 무제한". */
+    /**
+     * 쿼터 한 항목 변환. quota<0(무제한) → quota/ratio/severity null, display "N / 무제한".
+     *
+     * ⚠️ quota=0인데 used>0이면 무한대 초과다. 예전엔 ratio=0.0으로 뭉개서 **초록 0% 게이지**로 보였다
+     * (쿼터를 0으로 줄였는데 인스턴스가 살아있는 상태 — OpenStack에서 가능). 나눗셈은 여전히 막되
+     * severity는 CRIT로 낸다.
+     */
     fun quotaItem(resource: String, used: Double, quota: Double, warnPercent: Int, critPercent: Int): QuotaItem {
         if (quota < 0) {
             return QuotaItem(resource, used, null, null, "${"%.0f".format(used)} / 무제한", null)
         }
-        val ratio = if (quota == 0.0) 0.0 else used / quota
+        if (quota == 0.0) {
+            val over = used > 0
+            return QuotaItem(
+                resource, used, 0.0, if (over) 1.0 else 0.0,
+                "${"%.0f".format(used)} / 0", if (over) Severity.CRIT else Severity.GOOD,
+            )
+        }
+        val ratio = used / quota
         return QuotaItem(
             resource = resource,
             used = used,
@@ -136,6 +149,7 @@ object WidgetBuilder {
     fun quotaGauge(inputs: List<QuotaInput>, warnPercent: Int, critPercent: Int): QuotaGaugeWidget =
         QuotaGaugeWidget(
             items = inputs.map { quotaItem(it.resource, it.used, it.max, warnPercent, critPercent) },
+            empty = inputs.isEmpty(),
         )
 
     /**
@@ -186,7 +200,12 @@ object WidgetBuilder {
             // status_donut의 DonutLevel(소문자)과 반대다. 헷갈리면 배너가 통째로 "info"로 떨어진다.
             level = if (exceeded) Severity.CRIT else Severity.GOOD,
             title = if (exceeded) "CPU $critPercent% 초과 인스턴스 ${count}대" else "CPU $critPercent% 초과 인스턴스 없음",
-            detail = offenders.takeIf { it.isNotEmpty() }?.let { "CPU $critPercent%↑ : ${it.joinToString(", ")}" },
+            // 상한 없이 나열하면 폭주 시(121대 전부 초과 가능) 배너가 이름 벽이 된다.
+            detail = offenders.takeIf { it.isNotEmpty() }?.let { names ->
+                val shown = names.take(BANNER_NAME_LIMIT)
+                val more = if (names.size > shown.size) " 외 ${names.size - shown.size}대" else ""
+                "CPU $critPercent%↑ : ${shown.joinToString(", ")}$more"
+            },
             count = count,
         )
     }
@@ -206,17 +225,21 @@ object WidgetBuilder {
         unit: String,
         warnPercent: Int,
         critPercent: Int,
+        topN: Int,
     ): ProjectUsageBarWidget {
         val rows = samples
             .mapNotNull { s -> s.labels["tenant"]?.let { it to s.value } }
-            // 무제한 방어: 음수(-9600 등)뿐 아니라 **-0.0**도 막아야 한다. `v >= 0`은 -0.0을 통과시키고,
-            // 그러면 무제한 테넌트가 "0% 사용"으로 보인다. 부호 비트로 판별한다.
-            .filterNot { (_, v) -> v < 0.0 || (v == 0.0 && 1.0 / v < 0) }
+            // 무제한 방어: 음수(-9600 등)뿐 아니라 **-0.0**도 막아야 한다. `v >= 0`은 -0.0을 통과시켜
+            // 무제한 테넌트가 "0% 사용"으로 둔갑한다. `1.0/v < 0`이 부호비트를 보므로 -0.0(→ -Inf)까지 걸린다.
+            // `==` 비교를 안 쓰는 이유: 타입이 Double?로 바뀌면 equals 의미론이 되어 -0.0 == 0.0이 false가 되고
+            // 버그가 조용히 되살아난다. isFinite는 NaN/±Inf 방어(NaN은 정렬 시 1위로 튄다).
+            .filter { (_, v) -> v.isFinite() && 1.0 / v > 0 }
             // Prometheus 결과 순서는 보장되지 않는다 — 새로고침마다 바가 재배열되지 않도록 고정
             .sortedWith(compareByDescending<Pair<String, Double>> { it.second }.thenBy { it.first })
             // 실측 27개 테넌트를 다 그리면 채팅창이 0.0% 바로 도배된다(실제 화면에서 확인).
-            // 사용률 높은 순이라 잘리는 건 안 쓰는 프로젝트뿐 — 평문 answer가 "외 N개"로 알려준다.
-            .take(PROJECT_USAGE_TOP_N)
+            // 사용률 높은 순이라 잘리는 건 안 쓰는 프로젝트다. 상한은 application.yml(불변식 7).
+            // 잘린 개수는 평문이 주장하지 않는다 — 여기서 세면 전체가 아니라 자른 뒤 수라 틀린다.
+            .take(topN)
             .map { (tenant, pct) ->
                 ProjectUsageRow(
                     projectName = tenant,
@@ -225,7 +248,7 @@ object WidgetBuilder {
                     severity = severityForPercent(pct, unit, warnPercent, critPercent),
                 )
             }
-        return ProjectUsageBarWidget(metric = metric, unit = unit, rows = rows)
+        return ProjectUsageBarWidget(metric = metric, unit = unit, rows = rows, empty = rows.isEmpty())
     }
 
     private fun describeCondition(f: InventoryFilters): String? {

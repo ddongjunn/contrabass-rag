@@ -79,11 +79,17 @@ data class AppProperties(
         val catalog: Map<String, CatalogEntryConfig> = emptyMap(),
         val inventory: Inventory = Inventory(),
         val severity: Severity = Severity(),
+        val widgets: Widgets = Widgets(),
     ) {
         /** 위젯 severity 임계치(%). 하드코딩 금지 — WidgetBuilder가 주입받아 색상 인코딩(설계 §5.1). */
         data class Severity(
             val warnPercent: Int = 70,
             val critPercent: Int = 85,
+        )
+
+        /** 위젯 표시 상한. project_usage_bar는 테넌트 수만큼 바가 생겨 채팅창을 덮는다(실측 27개). */
+        data class Widgets(
+            val projectUsageTopN: Int = 10,
         )
 
         data class Prometheus(

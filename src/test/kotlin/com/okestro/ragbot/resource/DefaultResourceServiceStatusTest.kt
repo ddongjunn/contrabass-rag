@@ -61,10 +61,15 @@ class DefaultResourceServiceStatusTest {
     }
 
     @Test
-    fun `count by status 쿼리를 쓴다`() {
+    fun `status별 개수를 세는 쿼리를 쓴다`() {
+        // 완전일치로 박으면 `count by (status)`처럼 의미가 같은 표기만 바꿔도 깨지고,
+        // 메트릭명을 설정으로 빼는 리팩터도 막는다. 의미만 고정한다.
         val prom = StubPrometheus(live())
         handle(prom)
-        assertEquals("count by(status)(openstack_nova_server_status)", prom.lastPromql)
+
+        val q = prom.lastPromql!!
+        assertTrue(q.contains("openstack_nova_server_status"), q)
+        assertTrue(Regex("""count\s+by\s*\(\s*status\s*\)""").containsMatchIn(q), "status별 집계가 아니다: $q")
     }
 
     @Test

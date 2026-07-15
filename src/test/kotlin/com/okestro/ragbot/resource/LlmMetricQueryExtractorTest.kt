@@ -182,6 +182,33 @@ class LlmMetricQueryExtractorTest {
     }
 
     @Test
+    fun `target QUOTA면 QuotaResolved - project까지 실린다`() {
+        val result = extractorWith(
+            """{"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":"AUTOTEST","confidence":0.94}"""
+        ).extract(ask("AUTOTEST 쿼터 얼마나 썼어?"))
+
+        assertEquals("AUTOTEST", assertIs<ResourceExtraction.QuotaResolved>(result).project)
+    }
+
+    @Test
+    fun `QUOTA인데 프로젝트가 없으면 되물음 - 테넌트가 43개라 특정이 필요하다`() {
+        val result = extractorWith(
+            """{"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.9}"""
+        ).extract(ask("쿼터 얼마나 썼어?"))
+
+        assertIs<ResourceExtraction.NeedsClarification>(result)
+    }
+
+    @Test
+    fun `target PROJECT_USAGE면 ProjectUsageResolved`() {
+        val result = extractorWith(
+            """{"target":"PROJECT_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.92}"""
+        ).extract(ask("프로젝트별 사용률 보여줘"))
+
+        assertIs<ResourceExtraction.ProjectUsageResolved>(result)
+    }
+
+    @Test
     fun `STATUS여도 confidence 낮으면 되물음 - 기존 정책 그대로`() {
         val result = extractorWith(
             """{"target":"STATUS","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.3}"""

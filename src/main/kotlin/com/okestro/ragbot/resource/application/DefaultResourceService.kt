@@ -2,6 +2,7 @@ package com.okestro.ragbot.resource.application
 
 import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.common.config.AppProperties
+import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.QuotaInput
 import com.okestro.ragbot.resource.domain.ResourceExtraction
@@ -67,10 +68,19 @@ class DefaultResourceService(
 
     private val statusPromql = "count by(status)(openstack_nova_server_status)"
 
-    /** CPU 사용률 식(ratio_topk 내부와 동일) — 임계 비교용. */
-    private fun cpuPercentExpr() =
-        "(sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) " +
-            "/ on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100)"
+    /**
+     * CPU 사용률 식(PromQlBuilder.RATIO_TOPK 내부와 동일) — 임계 비교용.
+     *
+     * ⚠️ 메트릭명·윈도우를 하드코딩하면 안 된다(불변식 7). yml의 catalog.INSTANCE_CPU.raw-metric을
+     * 바꿨을 때 METRIC 경로만 따라가고 THRESHOLD는 죽은 메트릭을 조회해 **"초과 없음"이라는 거짓 안심**을
+     * 준다. 같은 소스에서 읽어 divergence를 원천 차단한다.
+     */
+    private fun cpuPercentExpr(): String {
+        val raw = catalog.lookup(MetricPattern.INSTANCE_CPU).rawMetric
+        val window = properties.resource.defaultWindow
+        return "(sum by(domain)(rate(${raw}[$window])) " +
+            "/ on(domain) max by(domain)(${PromQlBuilder.VCPUS_METRIC}) * 100)"
+    }
 
     private fun statusDonut(): ResourceService.Result {
         log.info("resource-status promql=\"{}\"", statusPromql)
@@ -78,26 +88,27 @@ class DefaultResourceService(
         return ResourceService.Result(StatusAnswerTemplate.render(widget), widgets = listOf(widget))
     }
 
+    /**
+     * 쿼리 **한 방**으로 초과 인스턴스를 받고 개수는 `.size`로 센다.
+     *
+     * 예전엔 `count(expr > crit)`와 `expr > crit`를 따로 쐈는데, `count(X)`는 X의 시리즈 수라 첫 쿼리가
+     * 아무것도 안 사면서 **불일치 창**만 만들었다(t1과 t2 사이에 인스턴스가 85% 아래로 떨어지면
+     * "3대"라면서 이름은 2개). 한 방이면 항상 자기정합적이고 Prometheus 부하도 절반이며,
+     * `count()`의 빈 벡터 함정도 사라진다(빈 리스트는 그냥 size=0).
+     */
     private fun thresholdBanner(): ResourceService.Result {
         val crit = properties.resource.severity.critPercent
-        val countPromql = "count(${cpuPercentExpr()} > $crit)"
-        log.info("resource-threshold promql=\"{}\"", countPromql)
+        val promql = "${cpuPercentExpr()} > $crit"
+        log.info("resource-threshold promql=\"{}\"", promql)
 
-        // ⚠️ PromQL count()는 매칭 0건이면 0이 아니라 빈 벡터를 준다 → firstOrNull ?: 0.
-        //    실측(2026-07-15): 최고 CPU 34.78%라 crit=85 초과 0건 → 빈 벡터가 흔한 경로다.
-        val count = prometheus.queryLabeled(countPromql).firstOrNull()?.value?.toInt() ?: 0
         // ⚠️ 라벨은 instance_name이 아니라 **domain**이다 — 식이 by(domain)으로 집계하므로 그것만 남는다.
         //    실측(2026-07-15): instance_name 보유 0/9, domain 9/9. 설계 TODO의 "instance_name"은 틀렸다.
         //    instance_name을 우선 보는 건 MetricSample.toSample과 같은 규칙(소스가 바뀌어도 견디게).
-        val offenders = if (count > 0) {
-            prometheus.queryLabeled("${cpuPercentExpr()} > $crit")
-                .mapNotNull { it.labels["instance_name"] ?: it.labels["domain"] }
-        } else {
-            emptyList()
-        }
+        val offenders = prometheus.queryLabeled(promql)
+            .mapNotNull { it.labels["instance_name"] ?: it.labels["domain"] }
 
-        val widget = WidgetBuilder.thresholdBanner(count, crit, offenders)
-        return ResourceService.Result(ThresholdAnswerTemplate.render(widget, crit), widgets = listOf(widget))
+        val widget = WidgetBuilder.thresholdBanner(offenders.size, crit, offenders)
+        return ResourceService.Result(ThresholdAnswerTemplate.render(widget, crit, offenders), widgets = listOf(widget))
     }
 
     /**
@@ -107,7 +118,7 @@ class DefaultResourceService(
      * 라벨은 tenant(=프로젝트 이름, 조인 불필요) + tenant_id. 무제한은 max=-1로 실관측된다.
      */
     private fun quotaGauge(project: String): ResourceService.Result {
-        val promql = """{__name__=~"$QUOTA_METRIC_RE", tenant="$project"}"""
+        val promql = """{__name__=~"$QUOTA_METRIC_RE", tenant="${escapePromQlLabel(project)}"}"""
         log.info("resource-quota project={} promql=\"{}\"", project, promql)
 
         val byName = prometheus.queryLabeled(promql).associate { it.labels["__name__"] to it.value }
@@ -138,10 +149,26 @@ class DefaultResourceService(
 
         val sev = properties.resource.severity
         val widget = WidgetBuilder.projectUsageBar(
-            prometheus.queryLabeled(promql), metric = "vCPU", unit = "%", sev.warnPercent, sev.critPercent,
+            prometheus.queryLabeled(promql),
+            metric = "vCPU",
+            unit = "%",
+            sev.warnPercent,
+            sev.critPercent,
+            topN = properties.resource.widgets.projectUsageTopN,
         )
         return ResourceService.Result(ProjectUsageAnswerTemplate.render(widget), widgets = listOf(widget))
     }
+
+    /**
+     * PromQL 라벨값 이스케이프. **project는 LLM이 사용자 질문에서 뽑은 자유 문자열**이라 그대로 넣으면
+     * 셀렉터를 닫고 다른 테넌트를 붙일 수 있다(리뷰에서 실증):
+     *   `a"} or {__name__=~"...", tenant="admin`  → 유효한 PromQL이 되어 admin의 쿼터가 렌더된다.
+     *
+     * `tenant=`는 정확 일치라 정규식 메타문자는 무해하고, 위험한 건 `"`와 `\` 둘뿐이다.
+     * 이스케이프하면 그런 이름의 테넌트를 찾다가 0건 → "쿼터 정보를 찾지 못했습니다" 경로로 안전하게 떨어진다.
+     */
+    private fun escapePromQlLabel(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     private data class QuotaSpec(val label: String, val usedMetric: String, val maxMetric: String, val divisor: Double)
 

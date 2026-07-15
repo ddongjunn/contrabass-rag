@@ -15,12 +15,18 @@ const BUILDERS = {
   threshold_banner: buildThresholdBanner,
 };
 
+function emptyHint(w) {
+  if (!w) return "";
+  return w.title || w.label || w.metric || "";
+}
+
 export function buildEmptyState(widget) {
   return h("div", { className: "card widget" }, [
     h("div", { className: "state" }, [
       h("div", { className: "state-ic", text: "🔍" }),
       h("div", { className: "state-msg", text: "조건에 맞는 결과가 없어요" }),
-      h("div", { className: "state-hint", text: widget && widget.title ? widget.title : "" }),
+      // title은 metric_rank에만 있다. status_donut/project_usage_bar는 label/metric을 쓴다.
+      h("div", { className: "state-hint", text: emptyHint(widget) }),
     ]),
   ]);
 }

@@ -2,7 +2,8 @@ package com.okestro.ragbot.resource.domain
 
 object PromQlBuilder {
 
-    private const val VCPUS_METRIC = "libvirt_domain_info_virtual_cpus"
+    /** CPU 사용률 식의 분모. DefaultResourceService의 임계 비교 식도 같은 상수를 써야 갈라지지 않는다. */
+    const val VCPUS_METRIC = "libvirt_domain_info_virtual_cpus"
     private const val INFO_METRIC = "libvirt_domain_openstack_info"
 
     fun build(query: ResourceQuery, entry: MetricCatalogEntry): String {

@@ -124,6 +124,30 @@ class DefaultResourceServiceQuotaTest {
         assertTrue(out.answer.contains("vCPU"), out.answer)
     }
 
+    @Test
+    fun `PromQL 인젝션 차단 - project는 LLM이 사용자 텍스트에서 뽑은 값이다`() {
+        // 리뷰에서 시연된 실제 공격: 셀렉터를 닫고 or로 다른 테넌트를 붙여 쿼터를 훔쳐본다.
+        //   a"} or {__name__=~"...", tenant="admin
+        // → 유효한 PromQL이 되어 admin의 6개 시리즈가 그대로 게이지에 렌더된다.
+        val attack = """a"} or {__name__=~"openstack_nova_limits_(vcpus|memory)_(max|used)", tenant="admin"""
+        val prom = StubPrometheus(emptyList())
+        handle(prom, attack)
+
+        val q = prom.seen.single()
+        // 핵심: 라벨값을 닫는 따옴표가 **이스케이프되지 않은 채** 나오면 셀렉터가 끊긴다.
+        // `tenant="a"}` 가 그 형태다. 이스케이프되면 `tenant="a\"}` 라 값 안에 갇힌다.
+        assertTrue(!q.contains("""tenant="a"}"""), "따옴표가 안 막혀 셀렉터가 닫혔다 — 인젝션 성립: $q")
+        assertTrue(q.contains("""tenant="a\"}"""), "공격 문자열이 이스케이프된 라벨값 안에 갇혀야 한다: $q")
+    }
+
+    @Test
+    fun `역슬래시도 이스케이프 - PromQL 문자열 escape 규칙`() {
+        // a\z → "unknown escape sequence" 파싱 오류 → HTTP 400 → Retry가 3번 헛돈다.
+        val prom = StubPrometheus(emptyList())
+        handle(prom, """a\z""")
+        assertTrue(prom.seen.single().contains("""a\\z"""), prom.seen.single())
+    }
+
     private fun emptyProvider(): ObjectProvider<InventoryRepository> =
         object : ObjectProvider<InventoryRepository> {
             override fun getObject(vararg args: Any?): InventoryRepository = throw UnsupportedOperationException()

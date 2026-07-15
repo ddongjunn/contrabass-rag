@@ -83,6 +83,8 @@ app:
     severity:                                   # 위젯 색상 임계치(%) — 프론트는 서버가 준 severity만 신뢰
       warn-percent: 70
       crit-percent: 85
+    widgets:
+      project-usage-top-n: 10                   # 프로젝트별 바 표시 상한(테넌트가 많으면 채팅창이 덮인다)
     prometheus:
       base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
       connect-timeout: 3s
