@@ -121,24 +121,18 @@ object WidgetBuilder {
     // 남고 PrometheusClient를 의존하지 않는다. 라벨 있는 결과는 PrometheusClient.queryLabeled()로
     // 받는다 — query()는 instance_name/domain 없는 시계열을 버려서 1b 쿼리엔 못 쓴다.
 
-    /** @param inputs 대상 tenant의 resource별 (used, max). max<0=무제한. 서비스가 6개 메트릭을 짝지어 넘긴다. */
+    /**
+     * 쿼터 사용량 → quota_gauge 위젯(REAL).
+     *
+     * 소스(라이브 검증 2026-07-15): Prometheus openstack-exporter. cb_common 아님.
+     * 라벨은 tenant(=프로젝트 이름, 조인 불필요) + tenant_id. 무제한(max=-1)은 실존한다.
+     * 단위 환산(메모리 MB→GB)은 서비스가 끝내서 넘긴다 — 빌더는 표시 규칙만 안다.
+     *
+     * @param inputs 대상 tenant의 resource별 (used, max). max<0 = 무제한.
+     */
     fun quotaGauge(inputs: List<QuotaInput>, warnPercent: Int, critPercent: Int): QuotaGaugeWidget =
-        // TODO(new-dev): 아래 목업을 실제 쿼터로 교체. (quotaItem 변환 규칙은 이미 완성 — 그대로 재사용)
-        //  ── 시그니처 확정: inputs.map { quotaItem(it.resource, it.used, it.max, warnPercent, critPercent) } 면 끝.
-        //     서비스가 queryLabeled로 6개 메트릭 조회 → labels["tenant"]로 max/used 짝짓기 → QuotaInput 생성.
-        //  ── 소스(라이브 검증 2026-07-09): Prometheus openstack-exporter. cb_common 아님.
-        //       vCPU:   openstack_nova_limits_vcpus_max        / openstack_nova_limits_vcpus_used
-        //       메모리: openstack_nova_limits_memory_max       / openstack_nova_limits_memory_used   (단위 MB, 예 51200=50GB)
-        //       디스크: openstack_cinder_limits_volume_max_gb  / openstack_cinder_limits_volume_used_gb
-        //  ── 라벨: tenant(프로젝트 이름, 그대로 표기) + tenant_id(uuid). 이름 조인 불필요.
-        //  ── 무제한: max=-1 실관측 → quotaItem(max<0)이 quota/ratio/severity=null, "N / 무제한" 처리(그대로 사용).
-        //  ── 구현: 대상 tenant의 6개 메트릭을 instant 조회(HttpPrometheusClient) → resource별로 quotaItem(name, used, max, warn, crit).
-        //  ── 트리거: "쿼터/사용량" 의도 필요(현재 추출기에 없음) — R1 추출기 확장 또는 요약 경로에서 호출. 설계 §5.4
         QuotaGaugeWidget(
-            items = listOf(
-                quotaItem("vCPU", 820.0, 1000.0, warnPercent, critPercent),
-                quotaItem("메모리(GB)", 512.0, -1.0, warnPercent, critPercent),
-            ),
+            items = inputs.map { quotaItem(it.resource, it.used, it.max, warnPercent, critPercent) },
         )
 
     /**

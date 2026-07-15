@@ -3,6 +3,7 @@ package com.okestro.ragbot.resource.application
 import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.resource.domain.PromQlBuilder
+import com.okestro.ragbot.resource.domain.QuotaInput
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -23,6 +24,7 @@ class DefaultResourceService(
             is ResourceExtraction.NeedsClarification -> ResourceService.Result(extraction.message, needsClarification = true)
             is ResourceExtraction.StatusResolved -> statusDonut()
             is ResourceExtraction.ThresholdResolved -> thresholdBanner()
+            is ResourceExtraction.QuotaResolved -> quotaGauge(extraction.project)
             is ResourceExtraction.Resolved -> {
                 val query = extraction.query
                 val entry = catalog.lookup(query.metric)
@@ -95,5 +97,41 @@ class DefaultResourceService(
 
         val widget = WidgetBuilder.thresholdBanner(count, crit, offenders)
         return ResourceService.Result(ThresholdAnswerTemplate.render(widget, crit), widgets = listOf(widget))
+    }
+
+    /**
+     * 쿼터 6개 메트릭(vCPU/메모리/디스크 × max/used)을 **정규식 한 방**으로 받는다.
+     * 메트릭당 1번씩 6번 쏠 이유가 없다(실측 확인: 1방에 6건).
+     *
+     * 라벨은 tenant(=프로젝트 이름, 조인 불필요) + tenant_id. 무제한은 max=-1로 실관측된다.
+     */
+    private fun quotaGauge(project: String): ResourceService.Result {
+        val promql = """{__name__=~"$QUOTA_METRIC_RE", tenant="$project"}"""
+        log.info("resource-quota project={} promql=\"{}\"", project, promql)
+
+        val byName = prometheus.queryLabeled(promql).associate { it.labels["__name__"] to it.value }
+        val sev = properties.resource.severity
+        val inputs = QUOTA_SPECS.mapNotNull { spec ->
+            val used = byName[spec.usedMetric] ?: return@mapNotNull null
+            val max = byName[spec.maxMetric] ?: return@mapNotNull null
+            // 메모리만 MB로 온다(실측 51200=50GB) — 그대로 두면 "25600 / 51200"이라 사람이 못 읽는다.
+            QuotaInput(spec.label, used / spec.divisor, if (max < 0) max else max / spec.divisor)
+        }
+
+        val widget = WidgetBuilder.quotaGauge(inputs, sev.warnPercent, sev.critPercent)
+        return ResourceService.Result(QuotaAnswerTemplate.render(widget, project), widgets = listOf(widget))
+    }
+
+    private data class QuotaSpec(val label: String, val usedMetric: String, val maxMetric: String, val divisor: Double)
+
+    private companion object {
+        const val QUOTA_METRIC_RE =
+            "openstack_nova_limits_(vcpus|memory)_(max|used)|openstack_cinder_limits_volume_(max|used)_gb"
+
+        val QUOTA_SPECS = listOf(
+            QuotaSpec("vCPU", "openstack_nova_limits_vcpus_used", "openstack_nova_limits_vcpus_max", 1.0),
+            QuotaSpec("메모리(GB)", "openstack_nova_limits_memory_used", "openstack_nova_limits_memory_max", 1024.0),
+            QuotaSpec("디스크(GB)", "openstack_cinder_limits_volume_used_gb", "openstack_cinder_limits_volume_max_gb", 1.0),
+        )
     }
 }

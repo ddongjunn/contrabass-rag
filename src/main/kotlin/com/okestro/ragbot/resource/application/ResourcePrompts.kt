@@ -13,8 +13,11 @@ object ResourcePrompts {
         - INVENTORY: 리소스의 존재·목록·개수를 묻는다 ("ACTIVE 아닌 인스턴스 목록", "prod 볼륨 개수", "특정 호스트의 인스턴스").
         - STATUS: 인스턴스 **상태 분포 전체**를 묻는다 ("상태 분포", "몇 대나 죽어있어", "ACTIVE/ERROR 몇 대씩").
         - THRESHOLD: **임계 초과 여부**를 묻는다 ("임계 넘은 노드", "위험한 인스턴스 있어?", "CPU 높아서 문제되는 거").
+        - QUOTA: **프로젝트의 쿼터/할당량**을 묻는다 ("prod 쿼터 얼마나 썼어", "AUTOTEST 할당량", "vCPU 한도 남았나").
+          → project 필드에 프로젝트 이름을 넣어라. 프로젝트가 불명확하면 project=null로 두면 된다(되물어준다).
         - 규칙: "얼마나/사용률/높은·낮은 순"=METRIC, "무엇이 있나/몇 개/목록"=INVENTORY,
-          "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD.
+          "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD, "쿼터/할당량/한도"=QUOTA.
+        - QUOTA vs METRIC: "쿼터/할당량/한도"는 QUOTA, 실제 사용 "지표/사용률"은 METRIC.
         - STATUS vs INVENTORY: 특정 상태 하나를 세면("ACTIVE 인스턴스 몇 개") INVENTORY,
           상태별 분포를 통째로 물으면("상태 분포", "죽은 거 몇 대") STATUS.
         - STATUS·THRESHOLD는 **추출할 조건이 없다** — 나머지 필드는 기본값을 채워라.
@@ -87,6 +90,12 @@ object ResourcePrompts {
 
         [질문] ACTIVE 인스턴스 몇 개야?
         => {"target":"INVENTORY","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"COUNT","status":"ACTIVE","statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
+
+        [질문] AUTOTEST 프로젝트 쿼터 얼마나 썼어?
+        => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"AUTOTEST","confidence":0.94}
+
+        [질문] prod 할당량 남은 거 있어?
+        => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"prod","confidence":0.9}
     """.trimIndent()
 
     fun schema(metricKeys: List<String>): String {
@@ -96,7 +105,7 @@ object ResourcePrompts {
             {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD"] },
+                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "QUOTA"] },
                 "clarificationNeeded": { "type": "boolean" },
                 "clarificationMessage": { "type": "string" },
                 "metric": { "type": "string", "enum": [$metricEnum] },
