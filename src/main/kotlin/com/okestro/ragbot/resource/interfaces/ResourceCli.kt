@@ -50,6 +50,7 @@ fun main() {
             is ResourceExtraction.StatusResolved -> println("→ [추출] target=STATUS (상태 분포)")
             is ResourceExtraction.ThresholdResolved -> println("→ [추출] target=THRESHOLD (임계 초과)")
             is ResourceExtraction.QuotaResolved -> println("→ [추출] target=QUOTA  project=${result.project}")
+            is ResourceExtraction.ProjectUsageResolved -> println("→ [추출] target=PROJECT_USAGE (프로젝트별 사용률)")
             is ResourceExtraction.Resolved -> {
                 val q = result.query
                 println("→ [추출] metric=${q.metric}  sort=${q.sort}  topN=${q.topN}  window=${q.window}  project=${q.project ?: "(전체)"}  instance=${q.instanceName ?: "(전체)"}")

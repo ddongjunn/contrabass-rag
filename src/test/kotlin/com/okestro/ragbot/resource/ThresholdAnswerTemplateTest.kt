@@ -17,17 +17,19 @@ class ThresholdAnswerTemplateTest {
 
     @Test
     fun `초과 있으면 산문으로 대수와 이름을 알린다`() {
+        // offenders를 목록 그대로 받는다 — 예전엔 detail 문자열을 substringAfter로 도로 파싱해서,
+        // 배너 포맷만 바꿔도 평문에서 이름이 조용히 사라졌다(리뷰 지적).
         val w = ThresholdBannerWidget(Severity.CRIT, "CPU 85% 초과 인스턴스 2대", "CPU 85%↑ : web-07, api-02", 2)
         assertEquals(
             "CPU 85%를 초과한 인스턴스가 2대 있습니다 — web-07, api-02.",
-            ThresholdAnswerTemplate.render(w, critPercent = 85),
+            ThresholdAnswerTemplate.render(w, critPercent = 85, offenders = listOf("web-07", "api-02")),
         )
     }
 
     @Test
     fun `초과 있는데 이름이 없으면 대수만`() {
         val w = ThresholdBannerWidget(Severity.CRIT, "CPU 85% 초과 인스턴스 2대", null, 2)
-        assertEquals("CPU 85%를 초과한 인스턴스가 2대 있습니다.", ThresholdAnswerTemplate.render(w, 85))
+        assertEquals("CPU 85%를 초과한 인스턴스가 2대 있습니다.", ThresholdAnswerTemplate.render(w, 85, emptyList()))
     }
 
     @Test

@@ -28,5 +28,11 @@ sealed class ResourceExtraction {
      */
     data class QuotaResolved(val project: String) : ResourceExtraction()
 
+    /**
+     * PROJECT_USAGE 트랙 — tenant별 vCPU 쿼터 사용률 바(project_usage_bar).
+     * quota_gauge가 "한 프로젝트의 여러 자원"이라면 이쪽은 "여러 프로젝트의 한 자원"이라 조건이 없다.
+     */
+    data object ProjectUsageResolved : ResourceExtraction()
+
     data class NeedsClarification(val message: String) : ResourceExtraction()
 }

@@ -59,6 +59,7 @@ data class ProjectUsageBarWidget(
     val metric: String,         // "CPU", "메모리" ...
     val unit: String,
     val rows: List<ProjectUsageRow>,
+    val empty: Boolean = false, // 결과 0건 → 빈 상태 카드(없으면 제목만 있는 유령 카드가 뜬다)
 ) : Widget { override val type = "project_usage_bar" }
 
 data class ProjectUsageRow(val projectName: String, val value: Double, val display: String, val severity: Severity?)
@@ -79,6 +80,7 @@ data class StatusSegment(val status: String, val count: Int, val level: String) 
  */
 data class QuotaGaugeWidget(
     val items: List<QuotaItem>,
+    val empty: Boolean = false, // 결과 0건 → 빈 상태 카드. 프로젝트명이 안 맞으면 흔히 발생한다.
 ) : Widget { override val type = "quota_gauge" }
 
 data class QuotaItem(

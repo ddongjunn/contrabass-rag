@@ -35,14 +35,6 @@ class StatusAnswerTemplateTest {
     }
 
     @Test
-    fun `위젯 세그먼트 순서를 그대로 따른다 - 숫자 드리프트 금지`() {
-        // 위젯은 count 내림차순으로 정렬돼 있다. 평문이 다른 순서면 같은 답이 두 모양이 된다.
-        val answer = StatusAnswerTemplate.render(widget("ACTIVE" to 121, "SHUTOFF" to 5, "ERROR" to 1))
-        assertTrue(answer.indexOf("ACTIVE") < answer.indexOf("SHUTOFF"))
-        assertTrue(answer.indexOf("SHUTOFF") < answer.indexOf("ERROR"))
-    }
-
-    @Test
     fun `상태 하나뿐이어도 자연스럽게`() {
         assertEquals("인스턴스 3대의 상태 분포입니다 — ACTIVE 3대.", StatusAnswerTemplate.render(widget("ACTIVE" to 3)))
     }

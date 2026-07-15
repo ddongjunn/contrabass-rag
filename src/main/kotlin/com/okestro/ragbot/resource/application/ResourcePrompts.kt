@@ -17,7 +17,9 @@ object ResourcePrompts {
           → project 필드에 프로젝트 이름을 넣어라. 프로젝트가 불명확하면 project=null로 두면 된다(되물어준다).
         - 규칙: "얼마나/사용률/높은·낮은 순"=METRIC, "무엇이 있나/몇 개/목록"=INVENTORY,
           "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD, "쿼터/할당량/한도"=QUOTA.
+        - PROJECT_USAGE: **프로젝트별 비교**를 묻는다 ("프로젝트별 사용률", "어느 프로젝트가 제일 많이 쓰나").
         - QUOTA vs METRIC: "쿼터/할당량/한도"는 QUOTA, 실제 사용 "지표/사용률"은 METRIC.
+        - QUOTA vs PROJECT_USAGE: 특정 프로젝트 하나면 QUOTA, 프로젝트끼리 비교면 PROJECT_USAGE.
         - STATUS vs INVENTORY: 특정 상태 하나를 세면("ACTIVE 인스턴스 몇 개") INVENTORY,
           상태별 분포를 통째로 물으면("상태 분포", "죽은 거 몇 대") STATUS.
         - STATUS·THRESHOLD는 **추출할 조건이 없다** — 나머지 필드는 기본값을 채워라.
@@ -94,6 +96,9 @@ object ResourcePrompts {
         [질문] AUTOTEST 프로젝트 쿼터 얼마나 썼어?
         => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"AUTOTEST","confidence":0.94}
 
+        [질문] 프로젝트별 사용률 보여줘
+        => {"target":"PROJECT_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.92}
+
         [질문] prod 할당량 남은 거 있어?
         => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"prod","confidence":0.9}
     """.trimIndent()
@@ -105,7 +110,7 @@ object ResourcePrompts {
             {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "QUOTA"] },
+                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "QUOTA", "PROJECT_USAGE"] },
                 "clarificationNeeded": { "type": "boolean" },
                 "clarificationMessage": { "type": "string" },
                 "metric": { "type": "string", "enum": [$metricEnum] },

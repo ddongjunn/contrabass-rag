@@ -1,15 +1,31 @@
 # [이슈] 위젯 트리거 — 질문에서 1b 위젯 부르기
 
-- **작성일**: 2026-07-15 · **담당**: 신규 개발자 · **기한**: 이번 주(금)
-- **짝 이슈**: [#12](./2026-07-09-widgets-backend-issue.md) — 위젯 **값을 만드는 쪽**(1b 빌더 4종)은 그쪽에서 병행 진행 중
-- **상태**: 경계·계약 확정. **바로 착수 가능.**
-- **⚠️ 2026-07-15 범위 변경**: 일정이 당겨져 `status_donut`은 우리가 끝냈다(임시 배선 포함). 네 범위는
-  **트리거 3종(`quota_gauge`·`threshold_banner`·`project_usage_bar`) + 임시 배선 대체** — **§3 먼저 읽어라.**
+- **작성일**: 2026-07-15 · **상태**: 🔴 **완료됨(CLOSED) — 착수하지 말 것**
 
-> 이 문서는 **목표·검증된 사실·경계**만 준다. 구현 방식은 자유.
-> 백엔드 전체 흐름은 [`README.md`](../../../README.md), 위젯 설계는 [#12](./2026-07-09-widgets-backend-issue.md) 참고.
+> ## ⚠️ 이 이슈는 무효다. 읽지 말고 아래만 보라.
+>
+> 일정이 이번 주로 당겨지면서 **이 이슈의 전 범위를 원저자 팀이 직접 구현했다**(2026-07-15).
+> 이슈를 "바로 착수 가능"으로 올린 지 몇 분 만에 소비해버린 것이라 **RnR 위반이고, 우리 잘못이다.**
+>
+> **아래 §1~§7의 지시는 전부 낡았다.** 특히:
+> - §3.1이 지우라고 하는 `DefaultResourceService.tempStatusDonut()` — **이미 없다**(정식 의도 분류로 대체됨).
+> - §3.4의 "네 실질 범위"(트리거 3종 + 임시 배선 대체) — **전부 done**.
+> - §4의 목업 시그니처 안내 — 본문이 이미 실구현이다.
+>
+> ### 지금 실제로 남은 일 (착수하려면 이쪽)
+> | 일 | 위치 |
+> |---|---|
+> | **Postman 컬렉션(v2.1)** — #12 DoD인데 아직 없음 | `docs/prototype/chatbot-widgets/` 아래 권장 |
+> | **`metric_rank.spark`** — range 쿼리 시계열 | [#12](./2026-07-09-widgets-backend-issue.md) §3, `PrometheusClient.queryRange` 신설 필요 |
+> | **`resource_dashboard`(Phase 2)** | [#14](./2026-07-09-widgets-phase2-dashboard-issue.md) — 프론트 렌더러부터 없음 |
+>
+> 아래 본문은 **이력 보존용**이다. 구현 결과를 읽으려면 `ResourceExtraction`/`ResourcePrompts`/
+> `DefaultResourceService`를 직접 보는 게 빠르다.
 
 ---
+
+<details>
+<summary>이력: 원래 이슈 본문 (무효)</summary>
 
 ## 1. 뭘 만드나
 
@@ -177,3 +193,6 @@ data class QuotaInput(val resource: String, val used: Double, val max: Double)  
 - **`metric_rank.spark`** — range 쿼리 시계열. #12에서도 이번 주 제외. `null` 유지가 정답.
 - **`resource_dashboard`(Phase 2 / [#14](./2026-07-09-widgets-phase2-dashboard-issue.md))** — 프론트 렌더러가 아예 없어서(`dispatch.js`에 6종만 등록, `resource_dashboard`는 `null` 반환이 의도된 동작) 백엔드만 만들어도 화면에 안 나온다. 다음 주 이후.
 - 위젯 빌더 내부 구현(#12 담당).
+
+
+</details>

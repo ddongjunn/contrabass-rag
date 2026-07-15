@@ -78,6 +78,7 @@ export interface ThresholdBannerWidget {
 export interface QuotaGaugeWidget {
   type: "quota_gauge";
   items: QuotaItem[];
+  empty: boolean;            // true면 결과 0건 → 빈 상태 카드
 }
 export interface QuotaItem {
   resource: string;          // "vCPU" | "메모리" | "디스크"
@@ -107,7 +108,8 @@ export interface ProjectUsageBarWidget {
   type: "project_usage_bar";
   metric: string;            // "vCPU" | "메모리" | "디스크"
   unit: string;              // "%"
-  rows: ProjectUsageRow[];
+  rows: ProjectUsageRow[];   // 사용률 내림차순, 서버가 상한(app.resource.widgets.project-usage-top-n)까지 잘라 보냄
+  empty: boolean;            // true면 결과 0건 → 빈 상태 카드
 }
 export interface ProjectUsageRow {
   projectName: string;       // tenant 이름(라벨에 이미 존재)
