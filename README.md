@@ -43,14 +43,14 @@ sequenceDiagram
         B->>L: 생성 — LLM ②
         L-->>B: 답변
         B-->>U: 답변 + 출처(title/page)
-    else RESOURCE — 인프라 실시간 지표 조회
+    else RESOURCE — 인프라 실시간 조회
         R-->>B: RESOURCE
-        B->>L: 조건추출 — LLM ② (strict json_schema)
-        L-->>B: ResourceQuery (metric·topN·sort·window·project·instanceName)
-        B->>B: PromQL 조립 (PromQlBuilder, LLM 0회)
-        B->>P: PromQL HTTP 조회
-        P-->>B: 지표 데이터
-        B-->>U: 템플릿 답변 (LLM 0회)
+        B->>L: 조건추출 — LLM ② (strict json_schema, target 판별 포함)
+        L-->>B: target = METRIC | INVENTORY | STATUS | THRESHOLD | QUOTA | PROJECT_USAGE
+        B->>B: target별 PromQL/SQL 조립 (LLM 0회)
+        B->>P: HTTP 조회
+        P-->>B: 지표·집계 데이터
+        B-->>U: 템플릿 답변 + 위젯 JSON (LLM 0회)
     else CLARIFY — 질문 유형 불명확
         R-->>B: CLARIFY
         B-->>U: 되물음 (유료호출 0)
@@ -61,7 +61,7 @@ sequenceDiagram
 - 유해 입력(금칙어·Moderation) → 라우팅 전 단락 (LLM 0회)
 - DOC 검색 0건 → 생성 LLM 호출 생략
 - CLARIFY → 유료호출 없이 되물음
-- RESOURCE → 추출 1회만, 템플릿 답변 (생성 LLM 0회)
+- RESOURCE → 추출 1회만, 템플릿 답변 + 위젯 (생성 LLM 0회). target이 6개로 늘어도 **호출 수는 그대로**
 
 > **스레드 히스토리**: Slack 멘션이 스레드 안에 있으면 `conversations.replies`로 직전 대화를 조회해
 > `ChatCommand.history`에 담아 라우터에 전달합니다(맥락 후속 질문 지원).
@@ -154,10 +154,25 @@ VM 배포 (앱 + pgvector 컨테이너):
 
 수동 CLI: `OPENAI_API_KEY=sk-... ./gradlew routingCli -q --console=plain`
 
-## RESOURCE 경로 (Prometheus 지표 조회)
+## RESOURCE 경로 (Prometheus / cb_common 조회)
 
-자연어 질문 → 조건 추출 → PromQL 조립 → Prometheus 조회 → 템플릿 답변.
-생성 LLM 호출 없이 **추출 1회**로 실시간 지표를 반환합니다.
+자연어 질문 → 조건 추출(target 판별 포함) → 쿼리 조립 → 조회 → 템플릿 답변 + 위젯 JSON.
+생성 LLM 호출 없이 **추출 1회**로 실시간 데이터를 반환합니다. 라우터는 `DOC/RESOURCE/CLARIFY`로
+동결돼 있고, RESOURCE 내부 분기는 추출 LLM의 `target` 판별자가 담당합니다(추가 호출 없음).
+
+**target 6종** (`ResourceExtraction`):
+
+| target | 질문 예 | 결과 | 위젯 |
+|---|---|---|---|
+| `METRIC` | "CPU 높은 VM" | Prometheus TopN | `metric_rank` |
+| `INVENTORY` | "볼륨 몇 개?" | cb_common COUNT/LIST | `inventory_count` |
+| `STATUS` | "상태 분포", "죽어있는 거 몇 대" | `count by(status)(openstack_nova_server_status)` | `status_donut` |
+| `THRESHOLD` | "임계 넘은 노드 있어?" | CPU 사용률 > `crit-percent` | `threshold_banner` |
+| `QUOTA` | "AUTOTEST 쿼터 얼마나 썼어?" | `openstack_{nova,cinder}_limits_*` (tenant별) | `quota_gauge` |
+| `PROJECT_USAGE` | "프로젝트별 사용률" | tenant별 쿼터 사용률 | `project_usage_bar` |
+
+> QUOTA는 대상 프로젝트가 필요합니다(테넌트 43개) — 없으면 되묻습니다. 전체 비교는 PROJECT_USAGE.
+> 무제한 쿼터(`max=-1`)는 PromQL `max > 0`으로 걸러집니다.
 
 **지원 메트릭** (`app.resource.catalog.*`):
 
@@ -170,7 +185,11 @@ VM 배포 (앱 + pgvector 컨테이너):
 
 **추출 필드** (`ResourceQuery`): `metric` · `sort(DESC/ASC)` · `topN(1-20)` · `window` · `project` · `instanceName`
 
-수동 CLI: `OPENAI_API_KEY=sk-... PROMETHEUS_URL=http://... ./gradlew resourceCli -q --console=plain`
+수동 CLI:
+- 추출·PromQL·답변: `OPENAI_API_KEY=sk-... PROMETHEUS_URL=http://... ./gradlew resourceCli -q --console=plain`
+- status_donut 실 조회 확인: `PROMETHEUS_URL=http://... ./gradlew statusCli -q --console=plain`
+
+> ⚠️ **JDK 21 필수** (기본이 25면 컴파일이 깨집니다).
 
 ## 문서
 
