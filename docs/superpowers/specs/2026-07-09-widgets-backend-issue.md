@@ -89,5 +89,6 @@ FE는 `POST /api/chat` **한 엔드포인트만** 호출하고, 응답의 `widge
 - 1b 각 위젯이 §3 실쿼리로 실값을 렌더(무제한 `-1`, empty 상태 포함).
 - 평문 answer 무변경, Slack 무영향, `./gradlew test` 그린.
 - 새 튜닝값은 `application.yml`, 새 위젯 타입은 `Widget.kt` + FE 계약 반영.
+- **작업 끝나면 Postman 컬렉션(v2.1 JSON)을 저장소에 남긴다.** `POST /api/chat`에 위젯별 질문을 던지는 요청 모음 — 받는 사람이 import만 하면 바로 돌려볼 수 있어야 한다. 프론트 없이 응답 JSON만으로 §4 계약(`widgets`/`followups`)이 맞는지 확인되는 게 목적. 위치는 `docs/prototype/chatbot-widgets/` 아래를 권장하고, 나머지(파일명·요청 구성·검증 방식)는 자유.
 
 > 진행 방식은 자유지만, 참고로 우리는 **위젯 하나씩 TDD(테스트 먼저 → 구현)로** 갔고 매 위젯마다 커밋했다. 그게 편하면 그렇게, 아니면 네 방식대로.
