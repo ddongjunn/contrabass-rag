@@ -19,5 +19,14 @@ sealed class ResourceExtraction {
      */
     data object ThresholdResolved : ResourceExtraction()
 
+    /**
+     * QUOTA 트랙 — 특정 프로젝트의 쿼터 사용량(quota_gauge).
+     *
+     * STATUS/THRESHOLD와 달리 **조건이 하나 있다**: 어느 테넌트인가. QuotaGaugeWidget은 한 테넌트의
+     * vCPU/메모리/디스크를 보여주는 위젯이라 대상이 특정돼야 한다(실측 테넌트 43개). 프로젝트가
+     * 없으면 추출기가 NeedsClarification으로 되묻는다.
+     */
+    data class QuotaResolved(val project: String) : ResourceExtraction()
+
     data class NeedsClarification(val message: String) : ResourceExtraction()
 }
