@@ -19,6 +19,8 @@ class DefaultResourceService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(history: List<ConversationMessage>): ResourceService.Result {
+        tempStatusDonut(history)?.let { return it }
+
         return when (val extraction = extractor.extract(history)) {
             is ResourceExtraction.NeedsClarification -> ResourceService.Result(extraction.message, needsClarification = true)
             is ResourceExtraction.Resolved -> {
@@ -53,5 +55,29 @@ class DefaultResourceService(
                 )
             }
         }
+    }
+
+    // ── TEMP(#21): status_donut 임시 키워드 배선 ────────────────────────────────
+    //
+    // 삭제 조건: #21에서 추출기/라우터에 "상태 분포" 의도가 들어오면 이 블록(+ 짝 테스트
+    //   DefaultResourceServiceStatusTest)을 통째로 지우고 ResourceExtraction 갈래로 옮긴다.
+    //
+    // 왜 LLM이 아니라 임의 if인가:
+    //   1) 불변식 2 — 의도 하나 붙이자고 추출기 프롬프트·스키마를 키우면 요청당 토큰이 는다.
+    //   2) 충돌 회피 — ResourcePrompts/LlmMetricQueryExtractor는 #21 소유다. 지금 손대면 겹친다.
+    //   3) 되돌리기 — if 한 덩어리는 지우면 끝이지만 프롬프트는 되돌리기가 지저분하다.
+    //
+    // 한계: 키워드 매칭이라 "지금 몇 대나 죽어있어?" 같은 변형은 못 잡는다. 그건 #21의 몫.
+    private val statusKeywords = listOf("상태 분포", "상태분포", "상태별", "인스턴스 상태")
+
+    private val statusPromql = "count by(status)(openstack_nova_server_status)"
+
+    private fun tempStatusDonut(history: List<ConversationMessage>): ResourceService.Result? {
+        val question = history.lastOrNull { it.role == ConversationMessage.Role.USER }?.content ?: return null
+        if (statusKeywords.none { question.contains(it) }) return null
+
+        log.info("resource-status-temp promql=\"{}\"", statusPromql)
+        val widget = WidgetBuilder.statusDonut(prometheus.queryLabeled(statusPromql))
+        return ResourceService.Result(StatusAnswerTemplate.render(widget), widgets = listOf(widget))
     }
 }
