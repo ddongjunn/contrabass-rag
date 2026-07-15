@@ -70,6 +70,10 @@ class LlmMetricQueryExtractor(
                     f.projectId ?: "(전체)", f.instanceCreateEnable, confidence,
                 )
             }
+            is ResourceExtraction.StatusResolved ->
+                log.info("extraction-resolved target=STATUS question=\"{}\" confidence={}", question, confidence)
+            is ResourceExtraction.ThresholdResolved ->
+                log.info("extraction-resolved target=THRESHOLD question=\"{}\" confidence={}", question, confidence)
             is ResourceExtraction.NeedsClarification ->
                 log.info("extraction-clarify question=\"{}\" confidence={} message=\"{}\"", question, confidence, result.message)
         }
@@ -82,7 +86,12 @@ class LlmMetricQueryExtractor(
             }
             return ResourceExtraction.NeedsClarification(msg)
         }
-        return if (raw.target.equals("INVENTORY", ignoreCase = true)) toInventory(raw) else toMetric(raw)
+        return when (raw.target.uppercase()) {
+            "INVENTORY" -> toInventory(raw)
+            "STATUS" -> ResourceExtraction.StatusResolved       // 조건 없음 — 쿼리 고정
+            "THRESHOLD" -> ResourceExtraction.ThresholdResolved // 임계값은 application.yml에서
+            else -> toMetric(raw)
+        }
     }
 
     private fun toMetric(raw: RawExtraction): ResourceExtraction {

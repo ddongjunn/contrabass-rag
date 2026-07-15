@@ -124,4 +124,42 @@ class WidgetBuilderTest {
         val w = WidgetBuilder.statusDonut(listOf(st("available", 3)), label = "볼륨")
         assertEquals("볼륨", w.label)
     }
+
+    // ── threshold_banner (1b) ──────────────────────────────────────────────────
+
+    @Test
+    fun `초과 있으면 CRIT 배너와 대수`() {
+        val w = WidgetBuilder.thresholdBanner(count = 2, critPercent = 85)
+        assertEquals(Severity.CRIT, w.level)
+        assertEquals(2, w.count)
+        assertEquals("CPU 85% 초과 인스턴스 2대", w.title)
+    }
+
+    @Test
+    fun `초과 0대면 GOOD 배너 - 안심 정보지 경고가 아니다`() {
+        // 실측(2026-07-15): 최고 CPU가 34.78%라 crit=85 초과는 0건 — 이게 지금 흔한 경우다.
+        val w = WidgetBuilder.thresholdBanner(count = 0, critPercent = 85)
+        assertEquals(Severity.GOOD, w.level)
+        assertEquals(0, w.count)
+        assertEquals("CPU 85% 초과 인스턴스 없음", w.title)
+        assertNull(w.detail, "초과가 없으면 나열할 것도 없다")
+    }
+
+    @Test
+    fun `level은 대문자 Severity - status_donut(소문자)과 반대`() {
+        // 프론트 threshold-banner.js의 LEVEL_CLASS는 대문자 키(CRIT/WARN/GOOD)를 쓴다.
+        // 도넛의 DonutLevel(소문자)과 헷갈리면 배너가 통째로 "info"로 떨어진다.
+        assertEquals("CRIT", WidgetBuilder.thresholdBanner(1, 85).level.name)
+    }
+
+    @Test
+    fun `offenders가 있으면 detail에 나열`() {
+        val w = WidgetBuilder.thresholdBanner(2, 85, listOf("web-prod-07", "api-prod-02"))
+        assertEquals("CPU 85%↑ : web-prod-07, api-prod-02", w.detail)
+    }
+
+    @Test
+    fun `offenders 비면 detail null - 프론트가 있을 때만 그린다`() {
+        assertNull(WidgetBuilder.thresholdBanner(2, 85).detail)
+    }
 }

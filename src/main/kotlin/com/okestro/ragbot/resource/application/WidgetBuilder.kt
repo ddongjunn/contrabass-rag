@@ -174,23 +174,25 @@ object WidgetBuilder {
     }
 
     /**
+     * CPU 임계 초과 집계 → threshold_banner 위젯(REAL).
+     *
+     * 호출부는 `count( <CPU 사용률 식> > {crit} )`를 `queryLabeled`로 조회해 대수를 넘긴다.
+     * ⚠️ PromQL `count()`는 매칭 0건이면 **0이 아니라 빈 벡터**를 준다 — `firstOrNull()?.value?.toInt() ?: 0`.
+     *
      * @param count 임계 초과 대수. 쿼리 결과가 라벨 없는 스칼라라 서비스가 Int로 넘긴다.
      * @param offenders 초과 인스턴스명(detail 표기용). 비우면 detail=null — 프론트가 있을 때만 그리므로 안전.
      */
-    fun thresholdBanner(count: Int, critPercent: Int, offenders: List<String> = emptyList()): ThresholdBannerWidget =
-        // TODO(new-dev): 아래 목업을 실제 임계 집계로 교체. (참조 백엔드엔 이런 쿼리 없음 — 우리가 자작)
-        //  ── 쿼리: 우리가 이미 쓰는 CPU 사용률 식(ratio_topk 내부)에 임계 비교.
-        //     count( (sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) / on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) > {crit} )
-        //     → 라벨 없는 스칼라 1건. queryLabeled(...).firstOrNull()?.value?.toInt() ?: 0.
-        //     offenders는 count() 없는 같은 식을 queryLabeled로 한 번 더 → labels["instance_name"]. 안 채워도 됨(옵션).
-        //  ── 임계값 {crit} = app.resource.severity.crit-percent 재사용(하드코딩 금지, 불변식 7).
-        //  ── level: count>0 → CRIT. detail = "CPU {crit}%↑ : name1, name2".
-        ThresholdBannerWidget(
-            level = Severity.CRIT,
-            title = "임계 초과 노드 2대",
-            detail = "CPU 85%↑ : web-prod-07, api-prod-02",
-            count = 2,
+    fun thresholdBanner(count: Int, critPercent: Int, offenders: List<String> = emptyList()): ThresholdBannerWidget {
+        val exceeded = count > 0
+        return ThresholdBannerWidget(
+            // level은 대문자 Severity — 프론트 threshold-banner.js의 LEVEL_CLASS가 대문자 키를 쓴다.
+            // status_donut의 DonutLevel(소문자)과 반대다. 헷갈리면 배너가 통째로 "info"로 떨어진다.
+            level = if (exceeded) Severity.CRIT else Severity.GOOD,
+            title = if (exceeded) "CPU $critPercent% 초과 인스턴스 ${count}대" else "CPU $critPercent% 초과 인스턴스 없음",
+            detail = offenders.takeIf { it.isNotEmpty() }?.let { "CPU $critPercent%↑ : ${it.joinToString(", ")}" },
+            count = count,
         )
+    }
 
     /** @param samples tenant별 사용률(%) 결과. labels["tenant"] = 프로젝트 이름, value = 퍼센트. */
     fun projectUsageBar(

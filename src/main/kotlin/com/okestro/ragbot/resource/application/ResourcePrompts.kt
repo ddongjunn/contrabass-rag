@@ -10,8 +10,14 @@ object ResourcePrompts {
 
         target 판별:
         - METRIC: 지표의 수치·순위·사용률을 묻는다 ("CPU 높은 VM", "메모리 사용률 top5", "네트워크 많이 쓰는 인스턴스").
-        - INVENTORY: 리소스의 존재·상태·목록·개수를 묻는다 ("ACTIVE 아닌 인스턴스 목록", "prod 볼륨 개수", "특정 호스트의 인스턴스").
-        - 규칙: "얼마나/사용률/높은·낮은 순"=METRIC, "무엇이 있나/상태/몇 개/목록"=INVENTORY.
+        - INVENTORY: 리소스의 존재·목록·개수를 묻는다 ("ACTIVE 아닌 인스턴스 목록", "prod 볼륨 개수", "특정 호스트의 인스턴스").
+        - STATUS: 인스턴스 **상태 분포 전체**를 묻는다 ("상태 분포", "몇 대나 죽어있어", "ACTIVE/ERROR 몇 대씩").
+        - THRESHOLD: **임계 초과 여부**를 묻는다 ("임계 넘은 노드", "위험한 인스턴스 있어?", "CPU 높아서 문제되는 거").
+        - 규칙: "얼마나/사용률/높은·낮은 순"=METRIC, "무엇이 있나/몇 개/목록"=INVENTORY,
+          "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD.
+        - STATUS vs INVENTORY: 특정 상태 하나를 세면("ACTIVE 인스턴스 몇 개") INVENTORY,
+          상태별 분포를 통째로 물으면("상태 분포", "죽은 거 몇 대") STATUS.
+        - STATUS·THRESHOLD는 **추출할 조건이 없다** — 나머지 필드는 기본값을 채워라.
 
         [METRIC] 추출 필드:
         - metric: 지표 종류 (INSTANCE_CPU/INSTANCE_MEMORY/INSTANCE_NETWORK_RX/INSTANCE_NETWORK_TX/INSTANCE_DISK_READ/INSTANCE_DISK_WRITE)
@@ -69,6 +75,18 @@ object ResourcePrompts {
 
         [질문] 서버 상태 보여줘
         => {"target":"METRIC","clarificationNeeded":true,"clarificationMessage":"무엇을 조회할까요? 지표(CPU/메모리/네트워크/디스크)인지, 리소스 목록(인스턴스/볼륨/스냅샷)인지 알려주세요.","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.2}
+
+        [질문] 인스턴스 상태 분포 알려줘
+        => {"target":"STATUS","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.95}
+
+        [질문] 지금 죽어있는 인스턴스 몇 대야?
+        => {"target":"STATUS","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
+
+        [질문] 임계 넘은 노드 있어?
+        => {"target":"THRESHOLD","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.93}
+
+        [질문] ACTIVE 인스턴스 몇 개야?
+        => {"target":"INVENTORY","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"COUNT","status":"ACTIVE","statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
     """.trimIndent()
 
     fun schema(metricKeys: List<String>): String {
@@ -78,7 +96,7 @@ object ResourcePrompts {
             {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "enum": ["METRIC", "INVENTORY"] },
+                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD"] },
                 "clarificationNeeded": { "type": "boolean" },
                 "clarificationMessage": { "type": "string" },
                 "metric": { "type": "string", "enum": [$metricEnum] },

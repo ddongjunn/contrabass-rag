@@ -160,4 +160,33 @@ class LlmMetricQueryExtractorTest {
 
         assertIs<ResourceExtraction.NeedsClarification>(result)
     }
+
+    // ── 1b 위젯 target (STATUS / THRESHOLD) ─────────────────────────────────────
+
+    @Test
+    fun `target STATUS면 StatusResolved`() {
+        val result = extractorWith(
+            """{"target":"STATUS","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.93}"""
+        ).extract(ask("인스턴스 상태 분포 알려줘"))
+
+        assertIs<ResourceExtraction.StatusResolved>(result)
+    }
+
+    @Test
+    fun `target THRESHOLD면 ThresholdResolved`() {
+        val result = extractorWith(
+            """{"target":"THRESHOLD","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.91}"""
+        ).extract(ask("임계 넘은 노드 있어?"))
+
+        assertIs<ResourceExtraction.ThresholdResolved>(result)
+    }
+
+    @Test
+    fun `STATUS여도 confidence 낮으면 되물음 - 기존 정책 그대로`() {
+        val result = extractorWith(
+            """{"target":"STATUS","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.3}"""
+        ).extract(ask("상태?"))
+
+        assertIs<ResourceExtraction.NeedsClarification>(result)
+    }
 }

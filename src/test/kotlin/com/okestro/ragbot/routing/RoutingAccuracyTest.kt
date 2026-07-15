@@ -46,4 +46,25 @@ class RoutingAccuracyTest {
         )
         assertEquals(Route.RESOURCE, realRouter().route(history).route)
     }
+
+    // ── 1b 위젯 질문 유형 (status_donut·threshold_banner) ───────────────────────
+    //
+    // 위젯이 뜨려면 라우터가 먼저 RESOURCE로 보내줘야 한다. DOC/CLARIFY로 새면 위젯 배선까지
+    // 도달을 못 해 영영 안 뜬다 — 키워드 if는 라우터 **뒤에** 있기 때문이다.
+    // 위젯 배선 테스트(DefaultResourceService*Test)는 라우터를 안 거치므로 이 구간은 여기서만 잡힌다.
+
+    @Test
+    fun `상태 분포 질문은 RESOURCE`() {
+        assertEquals(Route.RESOURCE, realRouter().route(user("인스턴스 상태 분포 알려줘")).route)
+    }
+
+    @Test
+    fun `임계 초과 질문은 RESOURCE`() {
+        assertEquals(Route.RESOURCE, realRouter().route(user("임계 넘은 노드 있어?")).route)
+    }
+
+    @Test
+    fun `상태 분포 구어체 변형도 RESOURCE`() {
+        assertEquals(Route.RESOURCE, realRouter().route(user("지금 죽어있는 인스턴스 몇 대야?")).route)
+    }
 }
