@@ -4,6 +4,7 @@ import com.okestro.ragbot.resource.domain.InventoryFilters
 import com.okestro.ragbot.resource.domain.InventoryKind
 import com.okestro.ragbot.resource.domain.InventoryResult
 import com.okestro.ragbot.resource.domain.InventoryCountWidget
+import com.okestro.ragbot.resource.domain.LabeledSample
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.MetricRankRow
 import com.okestro.ragbot.resource.domain.MetricRankWidget
@@ -11,6 +12,7 @@ import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.ProjectUsageBarWidget
 import com.okestro.ragbot.resource.domain.ProjectUsageRow
 import com.okestro.ragbot.resource.domain.QuotaGaugeWidget
+import com.okestro.ragbot.resource.domain.QuotaInput
 import com.okestro.ragbot.resource.domain.QuotaItem
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.resource.domain.Severity
@@ -113,10 +115,17 @@ object WidgetBuilder {
         )
     }
 
-    // ── MOCK: 신규 집계 미연동(1b) — new-dev가 채우는 seam(설계 §5.4) ───────────
+    // ── MOCK: 신규 집계 미연동(1b) — 본문만 목업, 시그니처는 확정(2026-07-15) ───────────
+    //
+    // 시그니처 규약: 1a와 동일하게 **서비스가 조회해서 넣어준다**. WidgetBuilder는 순수 변환 object로
+    // 남고 PrometheusClient를 의존하지 않는다. 라벨 있는 결과는 PrometheusClient.queryLabeled()로
+    // 받는다 — query()는 instance_name/domain 없는 시계열을 버려서 1b 쿼리엔 못 쓴다.
 
-    fun quotaGauge(warnPercent: Int, critPercent: Int): QuotaGaugeWidget =
+    /** @param inputs 대상 tenant의 resource별 (used, max). max<0=무제한. 서비스가 6개 메트릭을 짝지어 넘긴다. */
+    fun quotaGauge(inputs: List<QuotaInput>, warnPercent: Int, critPercent: Int): QuotaGaugeWidget =
         // TODO(new-dev): 아래 목업을 실제 쿼터로 교체. (quotaItem 변환 규칙은 이미 완성 — 그대로 재사용)
+        //  ── 시그니처 확정: inputs.map { quotaItem(it.resource, it.used, it.max, warnPercent, critPercent) } 면 끝.
+        //     서비스가 queryLabeled로 6개 메트릭 조회 → labels["tenant"]로 max/used 짝짓기 → QuotaInput 생성.
         //  ── 소스(라이브 검증 2026-07-09): Prometheus openstack-exporter. cb_common 아님.
         //       vCPU:   openstack_nova_limits_vcpus_max        / openstack_nova_limits_vcpus_used
         //       메모리: openstack_nova_limits_memory_max       / openstack_nova_limits_memory_used   (단위 MB, 예 51200=50GB)
@@ -132,12 +141,15 @@ object WidgetBuilder {
             ),
         )
 
-    fun statusDonut(): StatusDonutWidget =
+    /** @param samples queryLabeled("count by(status)(openstack_nova_server_status)") 결과. labels["status"] 사용. */
+    fun statusDonut(samples: List<LabeledSample>, label: String = "인스턴스"): StatusDonutWidget =
         // TODO(new-dev): 아래 목업을 실제 집계로 교체.
         //  ── 검증된 쿼리(라이브 2026-07-09): count by(status)(openstack_nova_server_status)
         //     → status 라벨별 개수. 실측: ACTIVE=116, SHUTOFF=2, ERROR=1. (cb_common GROUP BY 대신 이게 더 단순 — DB 불필요)
-        //  ── 구현: 결과 Map<status,count>를 받아 segment로 매핑. total=합. level: ACTIVE→"good", SHUTOFF/PAUSED→"muted", ERROR→"crit".
-        //  ── 트리거: "상태 분포" 의도 필요(현재 라우터/추출엔 없음) — R1 추출기에 추가 또는 요약 경로에서 호출. 설계 §5.4·Phase2
+        //  ── 구현: samples.map { it.labels["status"] to it.value.toInt() } → segment. total=합.
+        //  ── ⚠️ level은 **소문자** "good"|"warn"|"crit"|"muted" (프론트 status-donut.js의 LEVEL_CLASS가 소문자 키만
+        //     가짐 — Severity.name(대문자)을 넣으면 전부 seg-muted 회색으로 죽는다). ACTIVE→good, ERROR→crit,
+        //     SHUTOFF/PAUSED→muted.
         StatusDonutWidget(
             label = "인스턴스",
             total = 140,
@@ -148,11 +160,16 @@ object WidgetBuilder {
             ),
         )
 
-    fun thresholdBanner(): ThresholdBannerWidget =
+    /**
+     * @param count 임계 초과 대수. 쿼리 결과가 라벨 없는 스칼라라 서비스가 Int로 넘긴다.
+     * @param offenders 초과 인스턴스명(detail 표기용). 비우면 detail=null — 프론트가 있을 때만 그리므로 안전.
+     */
+    fun thresholdBanner(count: Int, critPercent: Int, offenders: List<String> = emptyList()): ThresholdBannerWidget =
         // TODO(new-dev): 아래 목업을 실제 임계 집계로 교체. (참조 백엔드엔 이런 쿼리 없음 — 우리가 자작)
         //  ── 쿼리: 우리가 이미 쓰는 CPU 사용률 식(ratio_topk 내부)에 임계 비교.
         //     count( (sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) / on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) > {crit} )
-        //     → 초과 대수(count). 초과 인스턴스명은 임계 필터한 같은 식의 결과 라벨(instance_name)에서 추출.
+        //     → 라벨 없는 스칼라 1건. queryLabeled(...).firstOrNull()?.value?.toInt() ?: 0.
+        //     offenders는 count() 없는 같은 식을 queryLabeled로 한 번 더 → labels["instance_name"]. 안 채워도 됨(옵션).
         //  ── 임계값 {crit} = app.resource.severity.crit-percent 재사용(하드코딩 금지, 불변식 7).
         //  ── level: count>0 → CRIT. detail = "CPU {crit}%↑ : name1, name2".
         ThresholdBannerWidget(
@@ -162,12 +179,22 @@ object WidgetBuilder {
             count = 2,
         )
 
-    fun projectUsageBar(warnPercent: Int, critPercent: Int): ProjectUsageBarWidget =
+    /** @param samples tenant별 사용률(%) 결과. labels["tenant"] = 프로젝트 이름, value = 퍼센트. */
+    fun projectUsageBar(
+        samples: List<LabeledSample>,
+        metric: String,
+        unit: String,
+        warnPercent: Int,
+        critPercent: Int,
+    ): ProjectUsageBarWidget =
         // TODO(new-dev): 아래 목업을 실제 집계로 교체.
         //  ── 주의(설계 정정): "프로젝트별 실사용률" 단일 소스는 없음(참조·라이브 모두 확인).
         //     → 프로젝트별 "쿼터 사용률"(used/max)로 재정의. quotaGauge와 같은 openstack_*_limits_* 재사용.
-        //  ── 구현: tenant별 (nova_limits_vcpus_used / _max)*100 → ProjectUsageRow(projectName=tenant, value, ...).
-        //     무제한(max=-1) 행: value=null, severity=null, display "무제한".
+        //  ── 구현: PromQL이 나눗셈까지 처리 가능 →
+        //     (openstack_nova_limits_vcpus_used / openstack_nova_limits_vcpus_max) * 100  (tenant 라벨 보존, 쿼리 1방)
+        //     → samples.map { ProjectUsageRow(it.labels["tenant"], it.value, format, severityForPercent(...)) }
+        //  ── ⚠️ 무제한(max=-1)이면 비율이 음수로 나온다. ProjectUsageRow.value가 non-null Double이라 null을 못 넣으니
+        //     해당 행은 걸러내는 게 맞다(`> 0` 필터 또는 PromQL에서 제외). 설계 주석의 "value=null"은 타입과 안 맞음.
         //  ── severity: severityForPercent(value, "%", warn, crit) 그대로 재사용.
         ProjectUsageBarWidget(
             metric = "CPU",
