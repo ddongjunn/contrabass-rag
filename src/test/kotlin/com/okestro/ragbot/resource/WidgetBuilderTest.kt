@@ -1,6 +1,7 @@
 package com.okestro.ragbot.resource
 
 import com.okestro.ragbot.resource.application.WidgetBuilder
+import com.okestro.ragbot.resource.domain.LabeledSample
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.ResourceQuery
@@ -64,5 +65,63 @@ class WidgetBuilderTest {
         assertEquals(0.82, item.ratio!!, 1e-9)
         assertEquals(Severity.WARN, item.severity) // 82% ∈ [70,85)
         assertEquals("820 / 1000", item.display)
+    }
+
+    // ── status_donut (1b) ──────────────────────────────────────────────────────
+
+    /** count by(status)(...) 결과 한 건. 라벨 status + 개수. */
+    private fun st(status: String, count: Int) = LabeledSample(mapOf("status" to status), count.toDouble())
+
+    @Test
+    fun `status 라벨별 세그먼트 생성, total은 합계`() {
+        // 라이브 실측(2026-07-09): ACTIVE=116, SHUTOFF=2, ERROR=1
+        val w = WidgetBuilder.statusDonut(listOf(st("ACTIVE", 116), st("SHUTOFF", 2), st("ERROR", 1)))
+        assertEquals(119, w.total)
+        assertEquals(3, w.segments.size)
+        assertEquals("인스턴스", w.label)
+        assertEquals(116, w.segments.single { it.status == "ACTIVE" }.count)
+    }
+
+    @Test
+    fun `level은 소문자 - ACTIVE good, ERROR crit, SHUTOFF muted`() {
+        // 프론트 status-donut.js의 LEVEL_CLASS가 소문자 키만 가짐 —
+        // Severity.name(대문자)을 넣으면 전부 seg-muted 회색으로 죽는다.
+        val w = WidgetBuilder.statusDonut(listOf(st("ACTIVE", 3), st("ERROR", 2), st("SHUTOFF", 1)))
+        assertEquals("good", w.segments.single { it.status == "ACTIVE" }.level)
+        assertEquals("crit", w.segments.single { it.status == "ERROR" }.level)
+        assertEquals("muted", w.segments.single { it.status == "SHUTOFF" }.level)
+    }
+
+    @Test
+    fun `알 수 없는 status는 muted로 폴백`() {
+        val w = WidgetBuilder.statusDonut(listOf(st("VERIFY_RESIZE", 1)))
+        assertEquals("muted", w.segments.single().level)
+    }
+
+    @Test
+    fun `세그먼트는 count 내림차순 - Prometheus 순서와 무관하게 안정적`() {
+        val w = WidgetBuilder.statusDonut(listOf(st("ERROR", 1), st("ACTIVE", 116), st("SHUTOFF", 2)))
+        assertEquals(listOf("ACTIVE", "SHUTOFF", "ERROR"), w.segments.map { it.status })
+    }
+
+    @Test
+    fun `빈 samples → empty=true, total 0`() {
+        val w = WidgetBuilder.statusDonut(emptyList())
+        assertTrue(w.empty)
+        assertEquals(0, w.total)
+        assertTrue(w.segments.isEmpty())
+    }
+
+    @Test
+    fun `status 라벨 없는 샘플은 제외`() {
+        val w = WidgetBuilder.statusDonut(listOf(st("ACTIVE", 5), LabeledSample(emptyMap(), 9.0)))
+        assertEquals(1, w.segments.size)
+        assertEquals(5, w.total, "라벨 없는 9는 total에도 안 들어간다")
+    }
+
+    @Test
+    fun `label 인자로 대상 이름을 바꿀 수 있다`() {
+        val w = WidgetBuilder.statusDonut(listOf(st("available", 3)), label = "볼륨")
+        assertEquals("볼륨", w.label)
     }
 }

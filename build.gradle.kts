@@ -90,6 +90,13 @@ tasks.register<JavaExec>("resourceCli") {
 	standardInput = System.`in`
 }
 
+tasks.register<JavaExec>("statusCli") {
+	group = "application"
+	description = "status_donut 실 Prometheus 확인용 CLI (PROMETHEUS_URL 필요)"
+	mainClass.set("com.okestro.ragbot.resource.interfaces.StatusCliKt")
+	classpath = sourceSets["main"].runtimeClasspath
+}
+
 // 실행 가능한 bootJar만 산출 (build/libs에 plain jar를 만들지 않음 → Docker COPY *.jar 안전)
 tasks.named<Jar>("jar") {
 	enabled = false
