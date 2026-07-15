@@ -76,6 +76,8 @@ class LlmMetricQueryExtractor(
                 log.info("extraction-resolved target=THRESHOLD question=\"{}\" confidence={}", question, confidence)
             is ResourceExtraction.QuotaResolved ->
                 log.info("extraction-resolved target=QUOTA question=\"{}\" project={} confidence={}", question, result.project, confidence)
+            is ResourceExtraction.ProjectUsageResolved ->
+                log.info("extraction-resolved target=PROJECT_USAGE question=\"{}\" confidence={}", question, confidence)
             is ResourceExtraction.NeedsClarification ->
                 log.info("extraction-clarify question=\"{}\" confidence={} message=\"{}\"", question, confidence, result.message)
         }
@@ -93,6 +95,7 @@ class LlmMetricQueryExtractor(
             "STATUS" -> ResourceExtraction.StatusResolved       // 조건 없음 — 쿼리 고정
             "THRESHOLD" -> ResourceExtraction.ThresholdResolved // 임계값은 application.yml에서
             "QUOTA" -> toQuota(raw)
+            "PROJECT_USAGE" -> ResourceExtraction.ProjectUsageResolved  // 조건 없음 — 전체 tenant 비교
             else -> toMetric(raw)
         }
     }

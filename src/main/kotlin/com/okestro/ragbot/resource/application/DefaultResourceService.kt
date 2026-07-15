@@ -25,6 +25,7 @@ class DefaultResourceService(
             is ResourceExtraction.StatusResolved -> statusDonut()
             is ResourceExtraction.ThresholdResolved -> thresholdBanner()
             is ResourceExtraction.QuotaResolved -> quotaGauge(extraction.project)
+            is ResourceExtraction.ProjectUsageResolved -> projectUsageBar()
             is ResourceExtraction.Resolved -> {
                 val query = extraction.query
                 val entry = catalog.lookup(query.metric)
@@ -122,9 +123,32 @@ class DefaultResourceService(
         return ResourceService.Result(QuotaAnswerTemplate.render(widget, project), widgets = listOf(widget))
     }
 
+    /**
+     * tenant별 vCPU 쿼터 사용률 → project_usage_bar.
+     *
+     * ⚠️ 무제한(max=-1)을 **PromQL에서 거른다**(`max > 0`). Kotlin에서 `value >= 0`으로 거르면
+     * `used=0, max=-1` → **-0.0**이 통과해 무제한 테넌트가 "0% 사용"으로 둔갑한다.
+     * 실측(2026-07-15): 43개 중 무제한 16개(음수 11 + -0.0 5) → 필터 후 27개.
+     *
+     * "프로젝트별 실사용률" 단일 소스는 없어서 쿼터 사용률로 재정의한 것이다(설계 정정).
+     */
+    private fun projectUsageBar(): ResourceService.Result {
+        val promql = "($PROJECT_USAGE_USED / ($PROJECT_USAGE_MAX > 0)) * 100"
+        log.info("resource-project-usage promql=\"{}\"", promql)
+
+        val sev = properties.resource.severity
+        val widget = WidgetBuilder.projectUsageBar(
+            prometheus.queryLabeled(promql), metric = "vCPU", unit = "%", sev.warnPercent, sev.critPercent,
+        )
+        return ResourceService.Result(ProjectUsageAnswerTemplate.render(widget), widgets = listOf(widget))
+    }
+
     private data class QuotaSpec(val label: String, val usedMetric: String, val maxMetric: String, val divisor: Double)
 
     private companion object {
+        const val PROJECT_USAGE_USED = "openstack_nova_limits_vcpus_used"
+        const val PROJECT_USAGE_MAX = "openstack_nova_limits_vcpus_max"
+
         const val QUOTA_METRIC_RE =
             "openstack_nova_limits_(vcpus|memory)_(max|used)|openstack_cinder_limits_volume_(max|used)_gb"
 

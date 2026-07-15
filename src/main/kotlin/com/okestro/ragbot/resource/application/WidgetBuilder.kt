@@ -26,6 +26,9 @@ import com.okestro.ragbot.resource.domain.ThresholdBannerWidget
  */
 object WidgetBuilder {
 
+    /** project_usage_bar 표시 상한. 실측 테넌트 27개(무제한 제외)를 다 그리면 채팅창이 도배된다. */
+    private const val PROJECT_USAGE_TOP_N = 10
+
     private val METRIC_LABEL = mapOf(
         MetricPattern.INSTANCE_CPU        to "CPU 사용률",
         MetricPattern.INSTANCE_MEMORY     to "메모리 사용률",
@@ -188,31 +191,42 @@ object WidgetBuilder {
         )
     }
 
-    /** @param samples tenant별 사용률(%) 결과. labels["tenant"] = 프로젝트 이름, value = 퍼센트. */
+    /**
+     * tenant별 쿼터 사용률 → project_usage_bar 위젯(REAL).
+     *
+     * ⚠️ 무제한(max=-1) 테넌트는 비율이 음수이거나 **-0.0**이다. ProjectUsageRow.value가 non-null이라
+     * 넣을 수 없고, -0.0을 통과시키면 무제한이 "0% 사용"으로 둔갑한다. 호출부가 PromQL에서 이미
+     * 거르지만(`max > 0`), 소스가 바뀌어도 안전하도록 여기서도 막는다.
+     *
+     * @param samples labels["tenant"] = 프로젝트 이름, value = 퍼센트.
+     */
     fun projectUsageBar(
         samples: List<LabeledSample>,
         metric: String,
         unit: String,
         warnPercent: Int,
         critPercent: Int,
-    ): ProjectUsageBarWidget =
-        // TODO(new-dev): 아래 목업을 실제 집계로 교체.
-        //  ── 주의(설계 정정): "프로젝트별 실사용률" 단일 소스는 없음(참조·라이브 모두 확인).
-        //     → 프로젝트별 "쿼터 사용률"(used/max)로 재정의. quotaGauge와 같은 openstack_*_limits_* 재사용.
-        //  ── 구현: PromQL이 나눗셈까지 처리 가능 →
-        //     (openstack_nova_limits_vcpus_used / openstack_nova_limits_vcpus_max) * 100  (tenant 라벨 보존, 쿼리 1방)
-        //     → samples.map { ProjectUsageRow(it.labels["tenant"], it.value, format, severityForPercent(...)) }
-        //  ── ⚠️ 무제한(max=-1)이면 비율이 음수로 나온다. ProjectUsageRow.value가 non-null Double이라 null을 못 넣으니
-        //     해당 행은 걸러내는 게 맞다(`> 0` 필터 또는 PromQL에서 제외). 설계 주석의 "value=null"은 타입과 안 맞음.
-        //  ── severity: severityForPercent(value, "%", warn, crit) 그대로 재사용.
-        ProjectUsageBarWidget(
-            metric = "CPU",
-            unit = "%",
-            rows = listOf(
-                ProjectUsageRow("service-prod", 78.4, "78.4%", severityForPercent(78.4, "%", warnPercent, critPercent)),
-                ProjectUsageRow("data-platform", 61.9, "61.9%", severityForPercent(61.9, "%", warnPercent, critPercent)),
-            ),
-        )
+    ): ProjectUsageBarWidget {
+        val rows = samples
+            .mapNotNull { s -> s.labels["tenant"]?.let { it to s.value } }
+            // 무제한 방어: 음수(-9600 등)뿐 아니라 **-0.0**도 막아야 한다. `v >= 0`은 -0.0을 통과시키고,
+            // 그러면 무제한 테넌트가 "0% 사용"으로 보인다. 부호 비트로 판별한다.
+            .filterNot { (_, v) -> v < 0.0 || (v == 0.0 && 1.0 / v < 0) }
+            // Prometheus 결과 순서는 보장되지 않는다 — 새로고침마다 바가 재배열되지 않도록 고정
+            .sortedWith(compareByDescending<Pair<String, Double>> { it.second }.thenBy { it.first })
+            // 실측 27개 테넌트를 다 그리면 채팅창이 0.0% 바로 도배된다(실제 화면에서 확인).
+            // 사용률 높은 순이라 잘리는 건 안 쓰는 프로젝트뿐 — 평문 answer가 "외 N개"로 알려준다.
+            .take(PROJECT_USAGE_TOP_N)
+            .map { (tenant, pct) ->
+                ProjectUsageRow(
+                    projectName = tenant,
+                    value = pct,
+                    display = MetricValueFormatter.format(pct, unit),
+                    severity = severityForPercent(pct, unit, warnPercent, critPercent),
+                )
+            }
+        return ProjectUsageBarWidget(metric = metric, unit = unit, rows = rows)
+    }
 
     private fun describeCondition(f: InventoryFilters): String? {
         val parts = buildList {
