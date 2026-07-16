@@ -33,7 +33,10 @@
           label: "metric_rank — CPU TopN (%)",
           answer: "CPU 사용률이 높은 인스턴스 상위 4개예요.",
           widgets: [{
-            type: "metric_rank", title: "CPU 사용률이 높은 인스턴스", unit: "%", window: "5m", promql: "topk(5, ...)", empty: false,
+            // 실물 쿼리를 그대로 둔다 — 예전 목업은 "topk(5, ...)"로 줄여놔서 200자짜리 실물이
+            // 카드를 덮는 걸 아무도 못 봤다(2026-07-16 화면에서 발견).
+            type: "metric_rank", title: "CPU 사용률이 높은 인스턴스", unit: "%", window: "5m", empty: false,
+            promql: "topk(5, (sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) / on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) * on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info)",
             rows: [
               { instanceName: "web-prod-07", projectName: "service-prod", value: 91.2, display: "91.2%", severity: "CRIT" },
               { instanceName: "api-prod-02", projectName: "service-prod", value: 87.0, display: "87.0%", severity: "CRIT" },
@@ -41,7 +44,8 @@
               { instanceName: "cache-03", projectName: "service-prod", value: 61.9, display: "61.9%", severity: "GOOD" },
             ],
           }],
-          followups: ["web-prod-07 메모리는?", "네트워크 송신량 TopN"],
+          // FollowupBuilder.forMetric이 위 rows로 실제 뱉는 3개 그대로.
+          followups: ["web-prod-07 인스턴스 메모리 사용률은?", "service-prod 프로젝트 CPU 사용률 TopN", "네트워크 송신량 TopN"],
         },
         {
           label: "metric_rank — 네트워크 (B/s, severity 없음 → 액센트색)",
@@ -59,7 +63,7 @@
           label: "inventory_count — 개수 카드",
           answer: "볼륨 342건입니다.",
           widgets: [{ type: "inventory_count", label: "볼륨", total: 342, condition: "상태=available · 프로젝트 전체" }],
-          followups: ["스냅샷은 몇 개야?"],
+          followups: ["볼륨 스냅샷은 몇 개야?", "인스턴스는 몇 개야?"],
         },
         {
           label: "quota_gauge — 쿼터 (무제한 포함)",
@@ -95,6 +99,9 @@
               { status: "ERROR", count: 3, level: "crit" },
             ],
           }],
+          // ⚠️ 미구현 — FollowupBuilder는 status 경로에 칩을 안 만든다(metric/inventory에만).
+          //    이건 "이렇게 됐으면" 하는 목업이지 실물이 아니다. 1b 위젯 4종(status/threshold/
+          //    quota/project_usage) 전부 칩이 없다.
           followups: ["ERROR 인스턴스 목록"],
         },
         {
