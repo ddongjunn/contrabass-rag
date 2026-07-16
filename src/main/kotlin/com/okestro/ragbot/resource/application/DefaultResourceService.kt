@@ -137,14 +137,14 @@ class DefaultResourceService(
     /**
      * tenant별 vCPU 쿼터 사용률 → project_usage_bar.
      *
-     * ⚠️ 무제한(max=-1)을 **PromQL에서 거른다**(`max > 0`). Kotlin에서 `value >= 0`으로 거르면
-     * `used=0, max=-1` → **-0.0**이 통과해 무제한 테넌트가 "0% 사용"으로 둔갑한다.
-     * 실측(2026-07-15): 43개 중 무제한 16개(음수 11 + -0.0 5) → 필터 후 27개.
+     * 무제한(max=-1)도 **계약대로 표시한다**(d.ts: `value: null` + "무제한", 프론트는 muted 100% 바).
+     * 실측 43개 중 16개가 무제한이라 거르면 이유 없이 3분의 1이 사라진다. 소스에서 안 거르고
+     * 빌더가 부호로 판별해 null 처리한다 — `used/max`는 max=-1일 때 음수(used>0) 또는 **-0.0**(used=0)이다.
      *
      * "프로젝트별 실사용률" 단일 소스는 없어서 쿼터 사용률로 재정의한 것이다(설계 정정).
      */
     private fun projectUsageBar(): ResourceService.Result {
-        val promql = "($PROJECT_USAGE_USED / ($PROJECT_USAGE_MAX > 0)) * 100"
+        val promql = "($PROJECT_USAGE_USED / $PROJECT_USAGE_MAX) * 100"
         log.info("resource-project-usage promql=\"{}\"", promql)
 
         val sev = properties.resource.severity

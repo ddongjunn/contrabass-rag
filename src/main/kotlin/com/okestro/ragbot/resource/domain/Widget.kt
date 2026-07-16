@@ -62,7 +62,12 @@ data class ProjectUsageBarWidget(
     val empty: Boolean = false, // 결과 0건 → 빈 상태 카드(없으면 제목만 있는 유령 카드가 뜬다)
 ) : Widget { override val type = "project_usage_bar" }
 
-data class ProjectUsageRow(val projectName: String, val value: Double, val display: String, val severity: Severity?)
+data class ProjectUsageRow(
+    val projectName: String,
+    val value: Double?,     // 무제한(쿼터 max=-1) → null. 프론트가 muted 100% 바로 그린다(계약 d.ts).
+    val display: String,    // "82.0%" 또는 "무제한"
+    val severity: Severity?, // 무제한이면 색을 못 매긴다 → null
+)
 
 /** Prometheus count by(status) 집계. */
 data class StatusDonutWidget(

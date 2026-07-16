@@ -175,6 +175,15 @@ object WidgetBuilder {
     }
 
     /**
+     * 쿼터 무제한 판별. `used/max`에서 max=-1이면 음수(used>0) 또는 **-0.0**(used=0)이 나온다.
+     *
+     * ⚠️ -0.0이 함정이다 — `v >= 0`을 통과해서 무제한이 "0% 사용"으로 둔갑한다. `1.0/v`가 부호비트를
+     * 보므로 -0.0(→ -Inf)까지 잡힌다. `==` 비교를 안 쓰는 이유: 타입이 박싱되면 equals 의미론이 되어
+     * -0.0 == 0.0이 false가 되고 버그가 조용히 되살아난다. (호출 전 isFinite로 NaN을 걸러둔다.)
+     */
+    private fun isUnlimited(ratio: Double): Boolean = 1.0 / ratio < 0
+
+    /**
      * 도넛 세그먼트 색. **소문자**여야 한다 — 프론트 status-donut.js의 LEVEL_CLASS가 소문자 키만
      * 가져서 Severity.name(대문자)을 넣으면 전부 seg-muted 회색으로 죽는다(계약: DonutLevel).
      */
@@ -229,24 +238,36 @@ object WidgetBuilder {
     ): ProjectUsageBarWidget {
         val rows = samples
             .mapNotNull { s -> s.labels["tenant"]?.let { it to s.value } }
-            // 무제한 방어: 음수(-9600 등)뿐 아니라 **-0.0**도 막아야 한다. `v >= 0`은 -0.0을 통과시켜
-            // 무제한 테넌트가 "0% 사용"으로 둔갑한다. `1.0/v < 0`이 부호비트를 보므로 -0.0(→ -Inf)까지 걸린다.
-            // `==` 비교를 안 쓰는 이유: 타입이 Double?로 바뀌면 equals 의미론이 되어 -0.0 == 0.0이 false가 되고
-            // 버그가 조용히 되살아난다. isFinite는 NaN/±Inf 방어(NaN은 정렬 시 1위로 튄다).
-            .filter { (_, v) -> v.isFinite() && 1.0 / v > 0 }
-            // Prometheus 결과 순서는 보장되지 않는다 — 새로고침마다 바가 재배열되지 않도록 고정
-            .sortedWith(compareByDescending<Pair<String, Double>> { it.second }.thenBy { it.first })
-            // 실측 27개 테넌트를 다 그리면 채팅창이 0.0% 바로 도배된다(실제 화면에서 확인).
-            // 사용률 높은 순이라 잘리는 건 안 쓰는 프로젝트다. 상한은 application.yml(불변식 7).
+            // NaN/±Inf는 무제한이 아니라 고장이다 — 표시할 의미가 없고, NaN은 정렬 시 1위로 튀어
+            // 상위 슬롯을 먹는다. 무제한(음수·-0.0)과 구분해서 여기서만 버린다.
+            .filter { (_, v) -> v.isFinite() }
+            // 정렬 = 볼 가치 순: ① 실제로 쓰는 중(사용률 내림차순) ② 무제한(한도 자체가 없다는 사실)
+            // ③ 한도는 있는데 0% (놀고 있음).
+            // ②를 ③보다 올리는 이유: 실측 43개 중 실사용이 2개뿐이라 무제한을 맨 뒤로 두면 상위 10칸을
+            // 0.0% 행이 다 먹어 무제한이 화면에 아예 안 나온다(실 화면에서 확인). 둘 다 조치할 게 없는
+            // 행이지만, "한도가 없다"는 설정 사실이 "안 쓰고 있다"보다 알 가치가 있다.
+            // 같은 값이면 이름순(Prometheus 결과 순서는 보장되지 않는다).
+            .sortedWith(
+                compareBy<Pair<String, Double>> { (_, v) ->
+                    when {
+                        isUnlimited(v) -> 1
+                        v > 0.0 -> 0
+                        else -> 2
+                    }
+                }
+                    .thenByDescending { (_, v) -> if (isUnlimited(v)) 0.0 else v }
+                    .thenBy { it.first },
+            )
+            // 실측 27개+ 테넌트를 다 그리면 채팅창이 덮인다(실 화면 확인). 상한은 application.yml(불변식 7).
             // 잘린 개수는 평문이 주장하지 않는다 — 여기서 세면 전체가 아니라 자른 뒤 수라 틀린다.
             .take(topN)
             .map { (tenant, pct) ->
-                ProjectUsageRow(
-                    projectName = tenant,
-                    value = pct,
-                    display = MetricValueFormatter.format(pct, unit),
-                    severity = severityForPercent(pct, unit, warnPercent, critPercent),
-                )
+                if (isUnlimited(pct)) {
+                    // 계약(d.ts): 무제한은 value=null·display="무제한"·severity=null → 프론트가 muted 100% 바.
+                    ProjectUsageRow(tenant, null, "무제한", null)
+                } else {
+                    ProjectUsageRow(tenant, pct, MetricValueFormatter.format(pct, unit), severityForPercent(pct, unit, warnPercent, critPercent))
+                }
             }
         return ProjectUsageBarWidget(metric = metric, unit = unit, rows = rows, empty = rows.isEmpty())
     }
