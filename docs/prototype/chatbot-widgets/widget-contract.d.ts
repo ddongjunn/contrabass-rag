@@ -103,7 +103,7 @@ export interface StatusSegment {
   level: DonutLevel;
 }
 
-/** 프로젝트별 쿼터 사용률 바. (used/max*100, 무제한은 value=null) */
+/** 프로젝트별 쿼터 사용률 바. (used/max*100, 무제한(max=-1)은 value=null → muted 100% 바) */
 export interface ProjectUsageBarWidget {
   type: "project_usage_bar";
   metric: string;            // "vCPU" | "메모리" | "디스크"
@@ -113,7 +113,7 @@ export interface ProjectUsageBarWidget {
 }
 export interface ProjectUsageRow {
   projectName: string;       // tenant 이름(라벨에 이미 존재)
-  value: number | null;      // null = 무제한
-  display: string;           // "82%" | "무제한"
-  severity: Severity | null;
+  value: number | null;      // null = 무제한(쿼터 max=-1). 실측 43개 테넌트 중 16개
+  display: string;           // "82.0%" | "무제한"
+  severity: Severity | null; // 무제한이면 null(색을 못 매김)
 }
