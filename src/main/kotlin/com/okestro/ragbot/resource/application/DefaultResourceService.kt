@@ -20,13 +20,13 @@ class DefaultResourceService(
 ) : ResourceService {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun handle(history: List<ConversationMessage>): ResourceService.Result {
+    override fun handle(history: List<ConversationMessage>, contextProject: String?): ResourceService.Result {
         return when (val extraction = extractor.extract(history)) {
             is ResourceExtraction.NeedsClarification -> ResourceService.Result(extraction.message, needsClarification = true)
             is ResourceExtraction.StatusResolved -> statusDonut()
             is ResourceExtraction.ThresholdResolved -> thresholdBanner()
             is ResourceExtraction.QuotaResolved -> {
-                val project = extraction.project
+                val project = extraction.project ?: contextProject
                 if (project == null) {
                     ResourceService.Result("어느 프로젝트의 쿼터를 조회할까요?", needsClarification = true)
                 } else {

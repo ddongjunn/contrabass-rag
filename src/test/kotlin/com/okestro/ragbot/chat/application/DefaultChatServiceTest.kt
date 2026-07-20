@@ -60,8 +60,11 @@ class DefaultChatServiceTest {
 
     private class FakeResourceService(private val result: ResourceService.Result) : ResourceService {
         var calls = 0
-        override fun handle(history: List<ConversationMessage>): ResourceService.Result {
-            calls++; return result
+        var receivedProject: String? = null
+        override fun handle(history: List<ConversationMessage>, contextProject: String?): ResourceService.Result {
+            calls++
+            receivedProject = contextProject
+            return result
         }
     }
 
@@ -171,6 +174,16 @@ class DefaultChatServiceTest {
         val result = svc.handle(ChatCommand(question = "서버 어때?", userId = "u1"))
 
         assertThat(result.answer).isEqualTo("어떤 지표를 조회할까요?")
+    }
+
+    @Test
+    fun `RESOURCE - ChatCommand의 project가 ResourceService로 전달된다`() {
+        val resource = FakeResourceService(ResourceService.Result("답변"))
+        val svc = service(router = FakeRouter(Route.RESOURCE), resource = resource)
+
+        svc.handle(ChatCommand(question = "쿼터 얼마나 썼어?", userId = "u1", project = "AUTOTEST"))
+
+        assertThat(resource.receivedProject).isEqualTo("AUTOTEST")
     }
 
     // ── CLARIFY 경로 ─────────────────────────────────────────────────────────

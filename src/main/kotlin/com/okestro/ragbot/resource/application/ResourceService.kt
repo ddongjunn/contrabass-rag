@@ -10,5 +10,6 @@ interface ResourceService {
         val widgets: List<Widget> = emptyList(),
         val followups: List<String> = emptyList(),
     )
-    fun handle(history: List<ConversationMessage>): Result
+    /** contextProject: 호출부(포털) 컨텍스트 — QUOTA가 질문에서 project를 못 찾았을 때만 폴백으로 쓴다. */
+    fun handle(history: List<ConversationMessage>, contextProject: String? = null): Result
 }

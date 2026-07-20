@@ -53,7 +53,7 @@ class DefaultChatService(
 
         return when (routeDecision.route) {
             Route.DOC      -> handleDoc(command)
-            Route.RESOURCE -> handleResource(history, command.userId)
+            Route.RESOURCE -> handleResource(history, command.userId, command.project)
             Route.CLARIFY  -> {
                 log.info("chat clarify userId={} routingCalls=1 llmCalls=0", command.userId)
                 ChatResult(
@@ -79,8 +79,8 @@ class DefaultChatService(
         return ChatResult(answer = answer, sources = sources)
     }
 
-    private fun handleResource(history: List<ConversationMessage>, userId: String): ChatResult {
-        val result = resourceService.handle(history)
+    private fun handleResource(history: List<ConversationMessage>, userId: String, project: String?): ChatResult {
+        val result = resourceService.handle(history, project)
         val callType = if (result.needsClarification) "clarify" else "answered"
         log.info("chat resource-{} userId={} routingCalls=1 extractionCalls=1 llmCalls=0", callType, userId)
         return ChatResult(answer = result.answer, sources = emptyList(), widgets = result.widgets, followups = result.followups)

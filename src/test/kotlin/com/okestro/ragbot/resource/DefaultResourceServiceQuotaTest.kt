@@ -59,6 +59,34 @@ class DefaultResourceServiceQuotaTest {
         DefaultResourceService(FixedExtractor(ResourceExtraction.QuotaResolved(project)), MetricCatalog(props), prom, emptyProvider(), props)
             .handle(listOf(ConversationMessage(Role.USER, "$project 쿼터 얼마나 썼어?")))
 
+    private fun handleWithContext(prom: PrometheusClient, extraction: ResourceExtraction.QuotaResolved, contextProject: String?) =
+        DefaultResourceService(FixedExtractor(extraction), MetricCatalog(props), prom, emptyProvider(), props)
+            .handle(listOf(ConversationMessage(Role.USER, "쿼터 얼마나 썼어?")), contextProject)
+
+    @Test
+    fun `질문에 project가 없어도 컨텍스트 project로 폴백한다`() {
+        val w = assertIs<QuotaGaugeWidget>(
+            handleWithContext(StubPrometheus(live()), ResourceExtraction.QuotaResolved(null), "AUTOTEST").widgets.single(),
+        )
+        assertEquals(listOf("vCPU", "메모리(GB)", "디스크(GB)"), w.items.map { it.resource })
+    }
+
+    @Test
+    fun `질문에 project가 명시되면 컨텍스트보다 우선한다`() {
+        val prom = StubPrometheus(emptyList())
+        handleWithContext(prom, ResourceExtraction.QuotaResolved("EXPLICIT"), "CONTEXT_PROJECT")
+
+        assertTrue(prom.seen.single().contains("""tenant="EXPLICIT""""), prom.seen.single())
+    }
+
+    @Test
+    fun `project도 컨텍스트도 없으면 되묻는다`() {
+        val out = handleWithContext(StubPrometheus(emptyList()), ResourceExtraction.QuotaResolved(null), null)
+
+        assertTrue(out.needsClarification)
+        assertEquals("어느 프로젝트의 쿼터를 조회할까요?", out.answer)
+    }
+
     @Test
     fun `6개 메트릭을 한 방에 조회한다 - tenant 필터 포함`() {
         // 메트릭당 1번씩 6번 쏘면 낭비다. 정규식으로 1방(실측 확인).
