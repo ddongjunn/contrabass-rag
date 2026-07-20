@@ -16,6 +16,7 @@ data class AppProperties(
     val slack: Slack = Slack(),
     val router: Router = Router(),
     val resource: Resource = Resource(),
+    val cors: Cors = Cors(),
 ) {
     data class Llm(
         val provider: String = "openai",
@@ -124,4 +125,9 @@ data class AppProperties(
             )
         }
     }
+
+    /** 브라우저 크로스오리진 호출 허용 목록. 비어있으면(기본값) CORS 미적용 — 지금처럼 차단. */
+    data class Cors(
+        val allowedOrigins: List<String> = emptyList(),
+    )
 }

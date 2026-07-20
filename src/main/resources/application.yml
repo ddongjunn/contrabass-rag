@@ -124,6 +124,8 @@ app:
       provider-uuid: ${CB_PROVIDER_UUID:}      # cb_provider(url~'https://10.255.%') 단일 공급자 uuid를 1회 확인해 주입
       max-rows: 50
       query-timeout-ms: 3000
+  cors:
+    allowed-origins: []                        # 예: [http://localhost:5173] — 비어있으면 CORS 미적용(기본값 안전)
 
 # --- 회복탄력성 (Resilience4j 통합) ---
 # OpenAI 임베딩·생성·모더레이션 공통 인스턴스 'openai'. 시간 제한은 spring.http.client.* 로 처리(TimeLimiter 미사용).
