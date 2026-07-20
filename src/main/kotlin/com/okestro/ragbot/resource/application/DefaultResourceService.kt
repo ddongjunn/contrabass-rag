@@ -25,7 +25,14 @@ class DefaultResourceService(
             is ResourceExtraction.NeedsClarification -> ResourceService.Result(extraction.message, needsClarification = true)
             is ResourceExtraction.StatusResolved -> statusDonut()
             is ResourceExtraction.ThresholdResolved -> thresholdBanner()
-            is ResourceExtraction.QuotaResolved -> quotaGauge(extraction.project)
+            is ResourceExtraction.QuotaResolved -> {
+                val project = extraction.project
+                if (project == null) {
+                    ResourceService.Result("어느 프로젝트의 쿼터를 조회할까요?", needsClarification = true)
+                } else {
+                    quotaGauge(project)
+                }
+            }
             is ResourceExtraction.ProjectUsageResolved -> projectUsageBar()
             is ResourceExtraction.Resolved -> {
                 val query = extraction.query

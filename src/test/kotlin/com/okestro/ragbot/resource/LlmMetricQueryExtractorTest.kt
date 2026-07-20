@@ -191,12 +191,12 @@ class LlmMetricQueryExtractorTest {
     }
 
     @Test
-    fun `QUOTA인데 프로젝트가 없으면 되물음 - 테넌트가 43개라 특정이 필요하다`() {
+    fun `QUOTA인데 프로젝트가 없으면 project null인 QuotaResolved - 되물을지는 서비스가 결정한다`() {
         val result = extractorWith(
             """{"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.9}"""
         ).extract(ask("쿼터 얼마나 썼어?"))
 
-        assertIs<ResourceExtraction.NeedsClarification>(result)
+        assertNull(assertIs<ResourceExtraction.QuotaResolved>(result).project)
     }
 
     @Test

@@ -119,15 +119,11 @@ class LlmMetricQueryExtractor(
     }
 
     /**
-     * QUOTA는 대상 테넌트가 있어야 한다 — 게이지 위젯이 한 프로젝트의 vCPU/메모리/디스크를 보여주는
-     * 형태라 대상이 특정돼야 하고, 실측 테넌트가 43개다. 프로젝트가 없으면 되묻는다.
-     * (전체 프로젝트 비교는 project_usage_bar의 몫이다.)
+     * QUOTA는 대상 테넌트가 있어야 게이지를 채울 수 있지만, "없으면 되묻는다"는 결정은
+     * 서비스 계층으로 옮겼다(호출부 컨텍스트로 폴백할 여지를 주기 위해). 여기서는 그대로 싣기만 한다.
      */
-    private fun toQuota(raw: RawExtraction): ResourceExtraction {
-        val project = raw.project?.takeIf { it.isNotBlank() }
-            ?: return ResourceExtraction.NeedsClarification("어느 프로젝트의 쿼터를 조회할까요?")
-        return ResourceExtraction.QuotaResolved(project)
-    }
+    private fun toQuota(raw: RawExtraction): ResourceExtraction =
+        ResourceExtraction.QuotaResolved(raw.project?.takeIf { it.isNotBlank() })
 
     private fun toInventory(raw: RawExtraction): ResourceExtraction {
         val kind = runCatching { InventoryKind.valueOf(raw.kind) }.getOrElse {
