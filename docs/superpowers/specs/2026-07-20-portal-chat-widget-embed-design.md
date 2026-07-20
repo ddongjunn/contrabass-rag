@@ -158,11 +158,17 @@ CORS 헤더 없음 → 안전한 기본값 유지.
 ## 7. 열린 리스크 (배포 전 확인 필요)
 
 - `remote-contrabass-admin`이 뜬 pod ↔ `ragbot-server` VM 간 실제 네트워크 도달 가능성 — 정확한
-  네트워크 구조가 확인되지 않았음(인프라팀 확인 필요).
+  네트워크 구조가 확인되지 않았음(인프라팀 확인 필요). **고정 IP만으로는 부족** — VM 앞단
+  방화벽/보안그룹에서 ragbot-server 포트(기본 8080) 인바운드가 열려 있어야 함.
 - Host(`hostBootFactory`/`hostMaestro`)가 실제로 서빙하는 도메인이 정확히 뭔지 → 그 도메인을 CORS
-  `allowed-origins`에 정확히 넣어야 함.
+  `allowed-origins`에 정확히 넣어야 함. **로컬 개발 중에는** 포탈 dev 서버 origin(예:
+  `http://localhost:5173`)도 같은 리스트에 추가해야 로컬 ↔ VM(또는 로컬 ↔ 로컬) 조합으로 테스트 가능.
 - `ragbot-server`가 HTTPS로 서빙되는지 — 포털이 HTTPS라면 혼합 콘텐츠 문제 방지를 위해 챗봇 API도
   HTTPS 필요.
+- **로컬 E2E는 이미 가능**: `docker-compose.yml`(로컬 pgvector) + `.env` + `SLACK_BOT_TOKEN=`/
+  `SLACK_APP_TOKEN=` 빈 값(Socket Mode 비활성, README 기존 문서화된 방법)으로 `./gradlew bootRun` 후
+  `window.CONTRABASS_CHAT_API_BASE="http://localhost:8080"`으로 로컬 포탈과 바로 붙여 테스트할 수
+  있음. DNS 불필요 — IP:포트 그대로 사용.
 
 ## 8. 검토했던 다른 임베드 방식 (선택 안 함)
 
