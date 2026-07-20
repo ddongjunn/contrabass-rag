@@ -4,9 +4,12 @@ import com.okestro.ragbot.chat.application.ChatCommand
 import com.okestro.ragbot.chat.application.ChatResult
 import com.okestro.ragbot.chat.application.ChatService
 import com.okestro.ragbot.chat.application.StubChatService
+import com.okestro.ragbot.common.config.AppProperties
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -17,10 +20,14 @@ import kotlin.test.assertEquals
 
 /** Phase 1 DoD: POST /api/chat → 스텁 응답. 외부 의존(OpenAI/DB) 없이 웹 슬라이스만 검증. */
 @WebMvcTest(ChatController::class)
-@Import(StubChatService::class)
+@Import(StubChatService::class, ChatControllerTest.TestConfig::class)
 class ChatControllerTest(
     @Autowired val mockMvc: MockMvc,
 ) {
+    @TestConfiguration
+    @EnableConfigurationProperties(AppProperties::class)
+    class TestConfig
+
     @Test
     fun `returns stub answer for posted question`() {
         mockMvc.perform(
