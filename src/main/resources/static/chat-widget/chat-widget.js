@@ -1,6 +1,7 @@
 import { mount } from "./render/dom.js";
 import { buildWidget } from "./render/dispatch.js";
 import { buildChrome } from "./render/chrome.js";
+import { resolveUserId, resolveProject } from "./render/context.js";
 
 (function () {
   const storage = {
@@ -103,7 +104,8 @@ import { buildChrome } from "./render/chrome.js";
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question,
-          userId: state.userId,
+          userId: resolveUserId(window, state.userId),
+          project: resolveProject(window),
         }),
       });
 
