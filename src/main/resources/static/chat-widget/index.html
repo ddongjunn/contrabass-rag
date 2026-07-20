@@ -29,45 +29,6 @@
       </div>
     </main>
 
-    <div id="contrabass-chat"></div>
-
-    <template id="cc-chrome">
-      <section class="chat-widget" data-open="false" aria-label="CONTRABASS assistant">
-        <button class="chat-launcher" type="button" aria-label="채팅 열기" aria-expanded="false">
-          <span class="launcher-glyph" aria-hidden="true"></span>
-          <span class="launcher-text">Chat</span>
-        </button>
-
-        <div class="chat-panel" role="dialog" aria-label="CONTRABASS assistant">
-          <header class="chat-header">
-            <div>
-              <p class="chat-kicker">CONTRABASS</p>
-              <h1>Assistant</h1>
-            </div>
-            <button class="icon-button" type="button" data-chat-close aria-label="채팅 닫기">
-              <span aria-hidden="true">×</span>
-            </button>
-          </header>
-
-          <div class="chat-messages" data-chat-messages aria-live="polite"></div>
-
-          <form class="chat-form" data-chat-form>
-            <label class="sr-only" for="chat-input">질문</label>
-            <textarea
-              id="chat-input"
-              data-chat-input
-              rows="1"
-              maxlength="1000"
-              placeholder="질문을 입력하세요"
-            ></textarea>
-            <button class="send-button" type="submit" aria-label="전송">
-              전송
-            </button>
-          </form>
-        </div>
-      </section>
-    </template>
-
     <script type="module" src="./chat-widget.js"></script>
   </body>
 </html>

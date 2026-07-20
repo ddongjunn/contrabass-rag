@@ -1,5 +1,6 @@
 import { mount } from "./render/dom.js";
 import { buildWidget } from "./render/dispatch.js";
+import { buildChrome } from "./render/chrome.js";
 
 (function () {
   const storage = {
@@ -8,17 +9,23 @@ import { buildWidget } from "./render/dispatch.js";
     messages: "contrabass.chat.messages",
   };
 
-  // Shadow DOM 마운트 — 외부 임베드 시 CSS/DOM 격리
-  const host = document.getElementById("contrabass-chat");
+  // 호스트 페이지가 #contrabass-chat/템플릿을 들고 있지 않아도 되게 스스로 컨테이너를 만든다.
+  // (Module Federation 등으로 같은 컴포넌트가 여러 번 마운트될 수 있어 중복 삽입을 막는다.)
+  if (document.getElementById("contrabass-chat")) return;
+
+  const host = document.createElement("div");
+  host.id = "contrabass-chat";
+  document.body.append(host);
+
   const shadow = host.attachShadow({ mode: "open" });
 
   const styleLink = document.createElement("link");
   styleLink.rel = "stylesheet";
-  styleLink.href = "./chat-widget.css";
+  // 상대경로가 호스트 페이지(포털) 기준으로 풀리는 것을 막는다 — 이 스크립트 자신의 URL 기준으로 고정.
+  styleLink.href = new URL("./chat-widget.css", import.meta.url).href;
   shadow.append(styleLink);
 
-  const chrome = document.getElementById("cc-chrome");
-  shadow.append(chrome.content.cloneNode(true));
+  shadow.append(mount(buildChrome()));
 
   const widget = shadow.querySelector(".chat-widget");
   const launcher = shadow.querySelector(".chat-launcher");
