@@ -32,10 +32,10 @@ export function buildStatusDonut(w) {
     offset += w.total > 0 ? (seg.count / w.total) * DONUT_CIRC : 0; // 다음 세그먼트는 전체 폭만큼 이동
   }
   const svg = h("svg", { ns: "svg", className: "donut", attrs: { viewBox: "0 0 42 42", width: "108", height: "108", "aria-hidden": "true" } }, [
-    h("circle", { ns: "svg", attrs: { cx: "21", cy: "21", r: String(R), fill: "none", "stroke-width": "5", stroke: "var(--w-line)" } }),
+    h("circle", { ns: "svg", attrs: { cx: "21", cy: "21", r: String(R), fill: "none", "stroke-width": "5", stroke: "var(--line)" } }),
     ...arcs,
     h("text", { ns: "svg", className: "donut-total", text: String(w.total), attrs: { x: "21", y: "20.5", "text-anchor": "middle", "font-size": "7.5", "font-weight": "700" } }),
-    h("text", { ns: "svg", text: w.label, attrs: { x: "21", y: "25.5", "text-anchor": "middle", "font-size": "3", fill: "var(--w-muted)" } }),
+    h("text", { ns: "svg", text: w.label, attrs: { x: "21", y: "25.5", "text-anchor": "middle", "font-size": "3", fill: "var(--muted)" } }),
   ]);
   const legend = h("div", { className: "legend" }, w.segments.map((seg) =>
     h("div", { className: "lg" }, [
