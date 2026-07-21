@@ -27,3 +27,11 @@ test("threshold_banner uses warn class for WARN level", () => {
 test("threshold_banner omits detail node when null", () => {
   assert.equal(find(buildThresholdBanner({ ...w, detail: null }), "msg-d"), null);
 });
+
+test("buildThresholdBanner renders a status icon svg instead of a literal ! / i character", () => {
+  const node = buildThresholdBanner({ level: "CRIT", title: "t", detail: null, count: 1 });
+  const iconEl = node.children[0];
+  assert.equal(iconEl.className, "msg-ic");
+  assert.equal(iconEl.text, undefined, "\"!\" 문자가 남아있으면 안 됨");
+  assert.equal(iconEl.children[0].tag, "svg");
+});

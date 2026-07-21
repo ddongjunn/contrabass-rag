@@ -1,4 +1,5 @@
 import { h } from "./dom.js";
+import { icon } from "./icons.js";
 import { buildMetricRank } from "./widgets/metric-rank.js";
 import { buildInventoryCount } from "./widgets/inventory-count.js";
 import { buildProjectUsageBar } from "./widgets/project-usage-bar.js";
@@ -21,7 +22,7 @@ function emptyHint(w) {
 export function buildEmptyState(widget) {
   return h("div", { className: "card widget" }, [
     h("div", { className: "state" }, [
-      h("div", { className: "state-ic", text: "🔍" }),
+      h("div", { className: "state-ic" }, [icon("search_off", 22)]),
       h("div", { className: "state-msg", text: "조건에 맞는 결과가 없어요" }),
       // title은 metric_rank에만 있다. status_donut/project_usage_bar는 label/metric을 쓴다.
       h("div", { className: "state-hint", text: emptyHint(widget) }),
