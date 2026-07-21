@@ -2,6 +2,10 @@ import { mount } from "./render/dom.js";
 import { buildWidget } from "./render/dispatch.js";
 import { buildChrome } from "./render/chrome.js";
 import { resolveUserId, resolveProject } from "./render/context.js";
+import { icon } from "./render/icons.js";
+import {
+  getTheme, setTheme, applyTheme, loadPanelSize, savePanelSize, clampPanelSize,
+} from "./render/theme.js";
 
 (function () {
   const storage = {
@@ -35,12 +39,26 @@ import { resolveUserId, resolveProject } from "./render/context.js";
   const input = shadow.querySelector("[data-chat-input]");
   const messagesEl = shadow.querySelector("[data-chat-messages]");
   const sendButton = shadow.querySelector(".send-button");
+  const themeToggle = shadow.querySelector("[data-chat-theme-toggle]");
+  const resizeGrip = shadow.querySelector("[data-chat-resize]");
+  const badge = shadow.querySelector("[data-chat-badge]");
+  const panel = shadow.querySelector(".chat-panel");
+
+  applyTheme(host, getTheme(localStorage));
+
+  const savedSize = loadPanelSize(localStorage);
+  if (savedSize) {
+    const clamped = clampPanelSize(savedSize.width, savedSize.height, { width: window.innerWidth, height: window.innerHeight });
+    panel.style.width = `${clamped.width}px`;
+    panel.style.height = `${clamped.height}px`;
+  }
 
   const state = {
     userId: getOrCreateId(storage.userId, "web-user"),
     conversationId: getOrCreateId(storage.conversationId, "web-conv"),
     messages: loadMessages(),
     pending: false,
+    unread: 0,
   };
 
   if (state.messages.length === 0) {
@@ -53,9 +71,42 @@ import { resolveUserId, resolveProject } from "./render/context.js";
   }
 
   renderMessages();
+  notifyUnreadIfClosed();
 
   launcher.addEventListener("click", () => setOpen(true));
   closeButton.addEventListener("click", () => setOpen(false));
+
+  themeToggle.addEventListener("click", () => {
+    const next = getTheme(localStorage) === "light" ? "dark" : "light";
+    setTheme(localStorage, next);
+    applyTheme(host, next);
+  });
+
+  resizeGrip.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startRect = panel.getBoundingClientRect();
+
+    function onMove(moveEvent) {
+      // 그립이 왼쪽 위 모서리라 왼쪽/위로 끌수록 커져야 한다 — X/Y 델타 부호를 뒤집는다.
+      const nextWidth = startRect.width - (moveEvent.clientX - startX);
+      const nextHeight = startRect.height - (moveEvent.clientY - startY);
+      const clamped = clampPanelSize(nextWidth, nextHeight, { width: window.innerWidth, height: window.innerHeight });
+      panel.style.width = `${clamped.width}px`;
+      panel.style.height = `${clamped.height}px`;
+    }
+
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const rect = panel.getBoundingClientRect();
+      savePanelSize(localStorage, { width: rect.width, height: rect.height });
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  });
 
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -122,6 +173,7 @@ import { resolveUserId, resolveProject } from "./render/context.js";
         widgets: Array.isArray(payload.widgets) ? payload.widgets : [],
         followups: Array.isArray(payload.followups) ? payload.followups : [],
       });
+      notifyUnreadIfClosed();
     } catch (error) {
       replaceMessage(loadingId, {
         id: loadingId,
@@ -166,7 +218,7 @@ import { resolveUserId, resolveProject } from "./render/context.js";
         const avatar = document.createElement("div");
         avatar.className = "avatar";
         avatar.setAttribute("aria-hidden", "true");
-        avatar.textContent = "C";
+        avatar.append(mount(icon("support_agent", 18)));
         row.append(avatar);
 
         const body = document.createElement("div");
@@ -255,8 +307,25 @@ import { resolveUserId, resolveProject } from "./render/context.js";
     widget.dataset.open = String(open);
     launcher.setAttribute("aria-expanded", String(open));
     if (open) {
+      state.unread = 0;
+      updateBadge();
       window.setTimeout(() => input.focus(), 0);
     }
+  }
+
+  function updateBadge() {
+    if (state.unread <= 0) {
+      badge.setAttribute("hidden", "");
+      return;
+    }
+    badge.removeAttribute("hidden");
+    badge.textContent = state.unread > 9 ? "9+" : String(state.unread);
+  }
+
+  function notifyUnreadIfClosed() {
+    if (widget.dataset.open === "true") return;
+    state.unread += 1;
+    updateBadge();
   }
 
   function updateFormState() {
