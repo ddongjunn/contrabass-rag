@@ -106,68 +106,137 @@ textarea:focus-visible {
 }
 
 .chat-launcher {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-width: 112px;
-  height: 46px;
-  padding: 0 16px;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   color: #ffffff;
   background: var(--brand);
   box-shadow: var(--shadow);
-  font-weight: 700;
+  transition: background-color 120ms ease, transform 120ms ease;
 }
 
 .chat-launcher:hover {
   background: var(--brand-dark);
+  transform: scale(1.04);
 }
 
-.launcher-glyph {
-  width: 16px;
-  height: 16px;
-  border: 2px solid currentColor;
-  border-radius: 5px;
-  position: relative;
-}
-
-.launcher-glyph::after {
-  content: "";
+.launcher-icon {
   position: absolute;
-  left: 3px;
-  bottom: -5px;
-  width: 7px;
-  height: 7px;
-  border-left: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: skew(-18deg);
-  background: var(--brand);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: rotate(-45deg) scale(0.6);
+  transition: opacity 150ms ease, transform 150ms ease;
 }
 
-.chat-launcher:hover .launcher-glyph::after {
-  background: var(--brand-dark);
+.launcher-icon-open {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.chat-widget[data-open="true"] .launcher-icon-open {
+  opacity: 0;
+  transform: rotate(45deg) scale(0.6);
+}
+
+.chat-widget[data-open="true"] .launcher-icon-close {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.launcher-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--w-crit);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.launcher-badge[hidden] {
+  display: none;
 }
 
 .chat-panel {
-  width: min(388px, calc(100vw - 32px));
-  height: min(640px, calc(100vh - 96px));
-  min-height: 420px;
-  display: none;
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  height: min(680px, calc(100vh - 96px));
+  min-height: 440px;
+  min-width: 340px;
+  display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(48, 53, 58, 0.12);
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: var(--panel);
   box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  transform-origin: bottom right;
+  opacity: 0;
+  transform: scale(0.92) translateY(12px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 160ms ease-in,
+    transform 160ms ease-in,
+    visibility 0s linear 160ms;
 }
 
 .chat-widget[data-open="true"] .chat-panel {
-  display: flex;
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.chat-widget[data-open="true"] .chat-launcher {
-  display: none;
+@media (prefers-reduced-motion: reduce) {
+  .chat-panel {
+    transition: opacity 0.01ms, visibility 0.01ms;
+  }
+}
+
+.resize-grip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px 0 8px 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.resize-grip:hover {
+  color: var(--ink);
+  background: var(--line);
+}
+
+@media (max-width: 520px) {
+  .resize-grip {
+    display: none;
+  }
 }
 
 .chat-header {
@@ -193,6 +262,27 @@ textarea:focus-visible {
   font-size: 18px;
   line-height: 1.2;
   letter-spacing: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.theme-icon {
+  display: none;
+}
+
+:host(:not([data-theme="light"])) .theme-icon-dark,
+:root:not([data-theme="light"]) .theme-icon-dark {
+  display: block;
+}
+
+:host([data-theme="light"]) .theme-icon-light,
+:root[data-theme="light"] .theme-icon-light {
+  display: block;
 }
 
 .icon-button {
@@ -224,6 +314,24 @@ textarea:focus-visible {
 .message {
   display: flex;
   margin: 0 0 12px;
+  animation: message-in 180ms ease-out;
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message {
+    animation: none;
+  }
 }
 
 .message[data-role="user"] {
