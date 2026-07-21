@@ -17,5 +17,10 @@ class CorsConfig(private val props: AppProperties) : WebMvcConfigurer {
             .allowedOrigins(*props.cors.allowedOrigins.toTypedArray())
             .allowedMethods("POST")
             .allowedHeaders("Content-Type")
+        // type="module" 스크립트(및 import로 딸려오는 하위 모듈)는 크로스오리진이면 CORS 헤더가 없으면
+        // 브라우저가 로드 자체를 막는다 — 포털이 이 오리진에서 위젯 스크립트를 주입하므로 별도로 열어야 한다.
+        registry.addMapping("/chat-widget/**")
+            .allowedOrigins(*props.cors.allowedOrigins.toTypedArray())
+            .allowedMethods("GET")
     }
 }
