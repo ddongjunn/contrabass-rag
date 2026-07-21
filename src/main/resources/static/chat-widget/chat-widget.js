@@ -34,7 +34,6 @@ import {
 
   const widget = shadow.querySelector(".chat-widget");
   const launcher = shadow.querySelector(".chat-launcher");
-  const closeButton = shadow.querySelector("[data-chat-close]");
   const form = shadow.querySelector("[data-chat-form]");
   const input = shadow.querySelector("[data-chat-input]");
   const messagesEl = shadow.querySelector("[data-chat-messages]");
@@ -73,8 +72,8 @@ import {
   renderMessages();
   notifyUnreadIfClosed();
 
-  launcher.addEventListener("click", () => setOpen(true));
-  closeButton.addEventListener("click", () => setOpen(false));
+  // 런처가 열기/닫기를 모두 담당한다 — 열림 상태에선 close 아이콘으로 모핑되므로 그대로 누르면 닫힌다.
+  launcher.addEventListener("click", () => setOpen(widget.dataset.open !== "true"));
 
   themeToggle.addEventListener("click", () => {
     const next = getTheme(localStorage) === "light" ? "dark" : "light";

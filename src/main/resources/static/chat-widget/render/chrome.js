@@ -24,9 +24,6 @@ export function buildChrome() {
             h("span", { className: "theme-icon theme-icon-light" }, [icon("light_mode", 18)]),
             h("span", { className: "theme-icon theme-icon-dark" }, [icon("dark_mode", 18)]),
           ]),
-          h("button", { className: "icon-button", attrs: { type: "button", "data-chat-close": "", "aria-label": "채팅 닫기" } }, [
-            icon("close", 18),
-          ]),
         ]),
       ]),
       h("div", { className: "chat-messages", attrs: { "data-chat-messages": "", "aria-live": "polite" } }),

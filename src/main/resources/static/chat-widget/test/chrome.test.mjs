@@ -22,7 +22,11 @@ test("buildChrome includes launcher, panel, form and message markers", () => {
   assert.notEqual(findByAttr(node, "data-chat-messages"), null);
   assert.notEqual(findByAttr(node, "data-chat-form"), null);
   assert.notEqual(findByAttr(node, "data-chat-input"), null);
-  assert.notEqual(findByAttr(node, "data-chat-close"), null);
+});
+
+// 닫기는 런처 자체가 담당한다(열림 상태에서 close 아이콘으로 모핑) — 헤더에 중복 X 버튼을 두지 않는다.
+test("buildChrome has no separate header close button", () => {
+  assert.equal(findByAttr(buildChrome(), "data-chat-close"), null);
 });
 
 test("buildChrome root carries data-open=false initially", () => {
@@ -37,13 +41,10 @@ test("buildChrome includes theme toggle, resize grip and unread badge markers", 
   assert.notEqual(findByAttr(node, "data-chat-badge"), null);
 });
 
-test("buildChrome launcher and close button carry icon svg children (no bare glyph/× text)", () => {
+test("buildChrome launcher carries both icon svg children (no bare glyph text)", () => {
   const node = buildChrome();
   const launcher = find(node, "chat-launcher");
   assert.notEqual(launcher, null);
   assert.equal(find(launcher, "launcher-icon-open").children[0].tag, "svg");
   assert.equal(find(launcher, "launcher-icon-close").children[0].tag, "svg");
-
-  const closeButton = findByAttr(node, "data-chat-close");
-  assert.equal(closeButton.children[0].tag, "svg");
 });
