@@ -103,6 +103,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 **집계 시각화(위젯) 개선안 [설계 완료]**
 - [`docs/prototype/chatbot-widgets/CLAUDE.md`](docs/prototype/chatbot-widgets/CLAUDE.md) — 작업자 진입점(스펙·프로토타입·RnR·계약·미결정)
 
+**챗봇 위젯 사내 포털 임베드 [개발 완료 · 사용자 검수 대기]**
+- [`docs/superpowers/specs/2026-07-20-portal-chat-widget-embed-design.md`](docs/superpowers/specs/2026-07-20-portal-chat-widget-embed-design.md) — 설계 스펙
+- [`docs/superpowers/plans/2026-07-20-portal-chat-widget-embed-plan.md`](docs/superpowers/plans/2026-07-20-portal-chat-widget-embed-plan.md) — 구현 계획·DoD (Phase 1~5 코드/자동테스트 완료, 실 환경 사용자 검수 대기)
+
 ## 문서 업데이트 규칙
 
 **계획이 추가·변경될 때마다 아래 문서를 함께 업데이트한다. 코드만 바꾸고 문서를 빠뜨리지 않는다.**

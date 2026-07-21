@@ -46,7 +46,7 @@ sequenceDiagram
     else RESOURCE — 인프라 실시간 조회
         R-->>B: RESOURCE
         B->>L: 조건추출 — LLM ② (strict json_schema, target 판별 포함)
-        L-->>B: target = METRIC | INVENTORY | STATUS | THRESHOLD | QUOTA | PROJECT_USAGE
+        L-->>B: target = METRIC | INVENTORY | STATUS | THRESHOLD | PROJECT_USAGE
         B->>B: target별 PromQL/SQL 조립 (LLM 0회)
         B->>P: HTTP 조회
         P-->>B: 지표·집계 데이터
@@ -61,7 +61,7 @@ sequenceDiagram
 - 유해 입력(금칙어·Moderation) → 라우팅 전 단락 (LLM 0회)
 - DOC 검색 0건 → 생성 LLM 호출 생략
 - CLARIFY → 유료호출 없이 되물음
-- RESOURCE → 추출 1회만, 템플릿 답변 + 위젯 (생성 LLM 0회). target이 6개로 늘어도 **호출 수는 그대로**
+- RESOURCE → 추출 1회만, 템플릿 답변 + 위젯 (생성 LLM 0회). target이 5개로 늘어도 **호출 수는 그대로**
 
 > **스레드 히스토리**: Slack 멘션이 스레드 안에 있으면 `conversations.replies`로 직전 대화를 조회해
 > `ChatCommand.history`에 담아 라우터에 전달합니다(맥락 후속 질문 지원).
@@ -160,7 +160,7 @@ VM 배포 (앱 + pgvector 컨테이너):
 생성 LLM 호출 없이 **추출 1회**로 실시간 데이터를 반환합니다. 라우터는 `DOC/RESOURCE/CLARIFY`로
 동결돼 있고, RESOURCE 내부 분기는 추출 LLM의 `target` 판별자가 담당합니다(추가 호출 없음).
 
-**target 6종** (`ResourceExtraction`):
+**target 5종** (`ResourceExtraction`):
 
 | target | 질문 예 | 결과 | 위젯 |
 |---|---|---|---|
@@ -168,11 +168,7 @@ VM 배포 (앱 + pgvector 컨테이너):
 | `INVENTORY` | "볼륨 몇 개?" | cb_common COUNT/LIST | `inventory_count` |
 | `STATUS` | "상태 분포", "죽어있는 거 몇 대" | `count by(status)(openstack_nova_server_status)` | `status_donut` |
 | `THRESHOLD` | "임계 넘은 노드 있어?" | CPU 사용률 > `crit-percent` | `threshold_banner` |
-| `QUOTA` | "AUTOTEST 쿼터 얼마나 썼어?" | `openstack_{nova,cinder}_limits_*` (tenant별) | `quota_gauge` |
 | `PROJECT_USAGE` | "프로젝트별 사용률" | tenant별 쿼터 사용률 | `project_usage_bar` |
-
-> QUOTA는 대상 프로젝트가 필요합니다(테넌트 43개) — 없으면 되묻습니다. 전체 비교는 PROJECT_USAGE.
-> 무제한 쿼터(`max=-1`)는 PromQL `max > 0`으로 걸러집니다.
 
 **지원 메트릭** (`app.resource.catalog.*`):
 
@@ -191,6 +187,23 @@ VM 배포 (앱 + pgvector 컨테이너):
 
 > ⚠️ **JDK 21 필수** (기본이 25면 컴파일이 깨집니다).
 
+## 챗봇 위젯 — 사내 포털 임베드
+
+`chat-widget.js`가 호스트 페이지 마크업 없이 스스로 마운트하고, `window.CONTRABASS_CHAT_USER_ID`/
+`PROJECT`가 있으면 매 질문 전송마다 다시 읽어 요청 본문(`userId`/`project`)에 싣는다. 포털
+(`remote-contrabass-admin`)이 로그인 사용자·선택된 프로젝트로 이 전역변수를 채우고 위젯 스크립트를
+주입한다. `project`는 호출부(포털) 컨텍스트로 전달만 되고, 현재 이 값을 소비하는 RESOURCE target은
+없다(예약 필드).
+
+**설정** (`application.yml` → `app.cors.*`):
+
+| 키 | 설명 | 기본값 |
+|---|---|---|
+| `app.cors.allowed-origins` | `/api/chat` + `/chat-widget/**`(위젯 스크립트 자체) 브라우저 크로스오리진 허용 origin 목록. `type="module"` 스크립트는 크로스오리진이면 CORS 없이는 브라우저가 로드 자체를 막는다 | `[]` (미적용) |
+
+- [`docs/superpowers/specs/2026-07-20-portal-chat-widget-embed-design.md`](docs/superpowers/specs/2026-07-20-portal-chat-widget-embed-design.md) — 설계 스펙
+- [`docs/superpowers/plans/2026-07-20-portal-chat-widget-embed-plan.md`](docs/superpowers/plans/2026-07-20-portal-chat-widget-embed-plan.md) — 구현 계획·DoD
+
 ## 문서
 
 - [`CLAUDE.md`](./CLAUDE.md) — 코딩 가이드라인 + 프로젝트 불변식
@@ -200,3 +213,4 @@ VM 배포 (앱 + pgvector 컨테이너):
 - [`docs/phase1/plan.md`](docs/phase1/plan.md) — 1차 개발 계획 Phase 0~7 (완료)
 - [`docs/phase2/plan.md`](docs/phase2/plan.md) — 2차 개발 계획 R0~R4 (완료, 설계도 포함)
 - [`docs/phase2/development-summary.md`](docs/phase2/development-summary.md) — 2차 개발 설명서 + 전체/파일/함수 흐름도
+- [`docs/superpowers/plans/2026-07-20-portal-chat-widget-embed-plan.md`](docs/superpowers/plans/2026-07-20-portal-chat-widget-embed-plan.md) — 챗봇 위젯 포털 임베드 계획 (코드 완료, 사용자 검수 대기)
