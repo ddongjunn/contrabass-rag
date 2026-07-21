@@ -135,6 +135,7 @@ VM 배포 (앱 + pgvector 컨테이너):
 | `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL | ✅ |
 | `DB_USERNAME` / `DB_PASSWORD` | DB 접속 정보 | ✅ |
 | `PROMETHEUS_URL` | Prometheus 서버 URL (`http(s)://host:port`) | RESOURCE 경로 |
+| `APP_CORS_ALLOWED_ORIGINS` | 위젯을 임베드하는 포털의 origin 목록(콤마 구분). 비우면 CORS 미적용이라 포털에서의 호출이 차단됨 | 위젯 임베드 |
 
 튜닝값(모델·top-k·임계값·테이블명·회복탄력성·Metric Catalog)은 `application.yml` 한 곳에서 관리합니다(`.env.example` 참고).
 
