@@ -42,6 +42,11 @@ export function buildMetricRank(w) {
       h("span", { text: `최근 ${w.window}` }),
     ]),
     ...rows,
-    h("div", { className: "wfoot" }, [h("span", { className: "prom", text: w.promql })]),
+    // 근거(promql)는 계약상 필수지만 실물이 200자를 넘어 카드를 덮는다 → 기본 접힘.
+    // 원문은 자르지 않는다 — 펼치면 그대로 나온다(불변식 5: 근거 표기).
+    h("details", { className: "wfoot" }, [
+      h("summary", { className: "prom-toggle", text: "PromQL" }),
+      h("span", { className: "prom", text: w.promql }),
+    ]),
   ]);
 }

@@ -5,6 +5,13 @@ import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.routing.application.LlmQuestionRouter
 import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.chat.domain.ConversationMessage.Role
+import com.okestro.ragbot.resource.application.FollowupBuilder
+import com.okestro.ragbot.resource.domain.InventoryFilters
+import com.okestro.ragbot.resource.domain.InventoryKind
+import com.okestro.ragbot.resource.domain.InventoryResult
+import com.okestro.ragbot.resource.domain.MetricPattern
+import com.okestro.ragbot.resource.domain.MetricSample
+import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.routing.domain.Route
 import com.okestro.ragbot.routing.infrastructure.OpenAiRouterLlmClient
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
@@ -113,5 +120,40 @@ class RoutingAccuracyTest {
     fun `문서 질문이 리소스 단어를 품어도 DOC`() {
         // "볼륨"이 들어갔다고 조회로 새면 안 된다 — 사용법을 묻고 있다.
         assertEquals(Route.DOC, realRouter().route(user("볼륨 스냅샷은 어떻게 만드나요?")).route)
+    }
+
+    // ── 연관질문 칩 왕복 가드 ───────────────────────────────────────────────────
+    //
+    // 칩은 우리가 만들어 던지고, 클릭하면 그 문자열이 그대로 다음 질문으로 되돌아온다.
+    // 그런데 ChatRequest엔 history가 없어서(REST는 빈 목록) 라우터는 칩 한 줄만 보고 판단한다.
+    // 즉 **우리가 만든 문장이 우리 라우터를 통과해야** 한다 — 아니면 칩은 100% 죽는다.
+    //
+    // 실측(2026-07-16, 화면): "admin만 보기" 클릭 → CLARIFY. 라우터는 정상이었고 문구가 틀렸다.
+    // FollowupBuilderTest는 순수 문자열만 봐서 이걸 못 잡는다. 라우터를 건너야만 잡히는 결함이다.
+    // 하드코딩이 아니라 FollowupBuilder가 **실제로 뱉는** 문구를 그대로 태운다(문구 바뀌면 같이 따라옴).
+
+    private fun metricChips(metric: MetricPattern): List<String> =
+        FollowupBuilder.forMetric(
+            ResourceQuery(metric = metric),
+            listOf(MetricSample(instanceName = "web-prod-07", value = 91.2, unit = "%", projectName = "admin")),
+        )
+
+    @Test
+    fun `metric 칩은 전부 RESOURCE로 라우팅된다`() {
+        val router = realRouter()
+        metricChips(MetricPattern.INSTANCE_CPU).forEach { chip ->
+            assertEquals(Route.RESOURCE, router.route(user(chip)).route, "칩이 라우터를 못 넘음: \"$chip\"")
+        }
+    }
+
+    @Test
+    fun `inventory 칩은 전부 RESOURCE로 라우팅된다`() {
+        val router = realRouter()
+        InventoryKind.entries.forEach { kind ->
+            val result = InventoryResult(kind = kind, rows = emptyList(), total = 3, appliedFilters = InventoryFilters())
+            FollowupBuilder.forInventory(result).forEach { chip ->
+                assertEquals(Route.RESOURCE, router.route(user(chip)).route, "칩이 라우터를 못 넘음: \"$chip\"")
+            }
+        }
     }
 }

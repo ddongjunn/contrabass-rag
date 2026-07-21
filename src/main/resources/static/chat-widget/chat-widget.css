@@ -440,7 +440,15 @@ textarea:focus-visible {
 .sev-muted { background: #dfe2e5; }
 
 .wfoot { margin-top: 12px; }
+.prom-toggle {
+  font-size: 10px; color: var(--w-muted); cursor: pointer;
+  list-style: none; user-select: none; width: fit-content;
+}
+.prom-toggle::-webkit-details-marker { display: none; }
+.prom-toggle::before { content: "▸ "; }
+details[open] > .prom-toggle::before { content: "▾ "; }
 .prom {
+  display: block; margin-top: 6px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 10px; color: var(--w-muted);
   background: var(--w-line); padding: 2px 7px; border-radius: 6px;

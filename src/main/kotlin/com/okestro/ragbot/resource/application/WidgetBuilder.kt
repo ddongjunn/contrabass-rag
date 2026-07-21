@@ -26,7 +26,8 @@ object WidgetBuilder {
     /** 배너 detail에 나열할 인스턴스 이름 상한. 표시용 상수라 튜닝값이 아니다. */
     private const val BANNER_NAME_LIMIT = 5
 
-    private val METRIC_LABEL = mapOf(
+    /** FollowupBuilder도 칩 문구에 같은 라벨을 쓴다 — 화면과 칩이 다른 말을 하면 안 된다. */
+    internal val METRIC_LABEL = mapOf(
         MetricPattern.INSTANCE_CPU        to "CPU 사용률",
         MetricPattern.INSTANCE_MEMORY     to "메모리 사용률",
         MetricPattern.INSTANCE_NETWORK_RX to "네트워크 수신량",

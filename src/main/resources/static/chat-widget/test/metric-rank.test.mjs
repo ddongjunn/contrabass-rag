@@ -77,3 +77,32 @@ test("metric_rank renders spark polyline when spark present", () => {
 test("metric_rank omits spark when absent", () => {
   assert.equal(find(buildMetricRank(cpu), "rk-spark"), null);
 });
+
+// ── PromQL 근거 푸터 ────────────────────────────────────────────────────────
+//
+// promql은 계약상 "근거 표기(환각 방지)"라 반드시 있어야 하지만, 실물은 200자가 넘는다
+// (프로토타입 목업은 "topk(5, ...)"로 줄여놔서 설계 때 실제 길이를 못 봤다).
+// 그대로 펼치면 카드보다 쿼리가 커진다 → 기본 접힘, 원문은 펼치면 그대로 보존.
+
+function findTag(node, tag) {
+  if (node.tag === tag) return node;
+  for (const c of node.children || []) {
+    const hit = findTag(c, tag);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+test("metric_rank collapses promql behind a summary, closed by default", () => {
+  const node = buildMetricRank(cpu);
+  const details = findTag(node, "details");
+  assert.notEqual(details, null, "promql은 details로 접혀야 함");
+  assert.ok(!(details.attrs || {}).open, "기본은 접힌 상태여야 함");
+  assert.notEqual(findTag(details, "summary"), null, "펼칠 손잡이(summary)가 있어야 함");
+});
+
+test("metric_rank keeps full promql text when expanded", () => {
+  const long = { ...cpu, promql: "topk(1, (sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) / on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100))" };
+  // 접어도 원문은 자르지 않는다 — 근거는 근거여야 한다(불변식 5).
+  assert.equal(find(buildMetricRank(long), "prom").text, long.promql);
+});
