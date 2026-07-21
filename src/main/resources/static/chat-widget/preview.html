@@ -19,7 +19,7 @@
   <body>
     <div class="preview-wrap">
       <h1>챗봇 위젯 미리보기</h1>
-      <p class="note">백엔드 없이 목업 데이터로 6종 위젯 + 상태를 실제 렌더 코드로 그린 화면입니다.</p>
+      <p class="note">백엔드 없이 목업 데이터로 5종 위젯 + 상태를 실제 렌더 코드로 그린 화면입니다.</p>
       <div id="preview"></div>
     </div>
 
@@ -60,18 +60,6 @@
           answer: "볼륨 342건입니다.",
           widgets: [{ type: "inventory_count", label: "볼륨", total: 342, condition: "상태=available · 프로젝트 전체" }],
           followups: ["스냅샷은 몇 개야?"],
-        },
-        {
-          label: "quota_gauge — 쿼터 (무제한 포함)",
-          answer: "service-prod 쿼터 사용 현황입니다.",
-          widgets: [{
-            type: "quota_gauge", items: [
-              { resource: "vCPU", used: 820, quota: 1000, ratio: 0.82, display: "820 / 1000", severity: "WARN" },
-              { resource: "메모리", used: 41984, quota: 51200, ratio: 0.82, display: "41 GB / 50 GB", severity: "WARN" },
-              { resource: "디스크", used: 6100, quota: 10000, ratio: 0.61, display: "6100 / 10000 GB", severity: "GOOD" },
-            ],
-          }],
-          followups: [],
         },
         {
           label: "project_usage_bar — 프로젝트별 (무제한 포함)",

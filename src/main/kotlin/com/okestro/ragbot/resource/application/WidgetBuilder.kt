@@ -11,9 +11,6 @@ import com.okestro.ragbot.resource.domain.MetricRankWidget
 import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.ProjectUsageBarWidget
 import com.okestro.ragbot.resource.domain.ProjectUsageRow
-import com.okestro.ragbot.resource.domain.QuotaGaugeWidget
-import com.okestro.ragbot.resource.domain.QuotaInput
-import com.okestro.ragbot.resource.domain.QuotaItem
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.resource.domain.Severity
 import com.okestro.ragbot.resource.domain.StatusDonutWidget
@@ -90,7 +87,7 @@ object WidgetBuilder {
             condition = describeCondition(result.appliedFilters),
         )
 
-    // ── severity / quota 변환 규칙(REAL, 테스트 대상) ──────────────────────────
+    // ── severity 변환 규칙(REAL, 테스트 대상) ──────────────────────────
 
     /** %<warn→GOOD, warn≤%<crit→WARN, %≥crit→CRIT. `%` 지표만, 그 외 null(§5.1). */
     fun severityForPercent(value: Double, unit: String, warnPercent: Int, critPercent: Int): Severity? {
@@ -102,55 +99,11 @@ object WidgetBuilder {
         }
     }
 
-    /**
-     * 쿼터 한 항목 변환. quota<0(무제한) → quota/ratio/severity null, display "N / 무제한".
-     *
-     * ⚠️ quota=0인데 used>0이면 무한대 초과다. 예전엔 ratio=0.0으로 뭉개서 **초록 0% 게이지**로 보였다
-     * (쿼터를 0으로 줄였는데 인스턴스가 살아있는 상태 — OpenStack에서 가능). 나눗셈은 여전히 막되
-     * severity는 CRIT로 낸다.
-     */
-    fun quotaItem(resource: String, used: Double, quota: Double, warnPercent: Int, critPercent: Int): QuotaItem {
-        if (quota < 0) {
-            return QuotaItem(resource, used, null, null, "${"%.0f".format(used)} / 무제한", null)
-        }
-        if (quota == 0.0) {
-            val over = used > 0
-            return QuotaItem(
-                resource, used, 0.0, if (over) 1.0 else 0.0,
-                "${"%.0f".format(used)} / 0", if (over) Severity.CRIT else Severity.GOOD,
-            )
-        }
-        val ratio = used / quota
-        return QuotaItem(
-            resource = resource,
-            used = used,
-            quota = quota,
-            ratio = ratio,
-            display = "${"%.0f".format(used)} / ${"%.0f".format(quota)}",
-            severity = severityForPercent(ratio * 100, "%", warnPercent, critPercent),
-        )
-    }
-
     // ── MOCK: 신규 집계 미연동(1b) — 본문만 목업, 시그니처는 확정(2026-07-15) ───────────
     //
     // 시그니처 규약: 1a와 동일하게 **서비스가 조회해서 넣어준다**. WidgetBuilder는 순수 변환 object로
     // 남고 PrometheusClient를 의존하지 않는다. 라벨 있는 결과는 PrometheusClient.queryLabeled()로
     // 받는다 — query()는 instance_name/domain 없는 시계열을 버려서 1b 쿼리엔 못 쓴다.
-
-    /**
-     * 쿼터 사용량 → quota_gauge 위젯(REAL).
-     *
-     * 소스(라이브 검증 2026-07-15): Prometheus openstack-exporter. cb_common 아님.
-     * 라벨은 tenant(=프로젝트 이름, 조인 불필요) + tenant_id. 무제한(max=-1)은 실존한다.
-     * 단위 환산(메모리 MB→GB)은 서비스가 끝내서 넘긴다 — 빌더는 표시 규칙만 안다.
-     *
-     * @param inputs 대상 tenant의 resource별 (used, max). max<0 = 무제한.
-     */
-    fun quotaGauge(inputs: List<QuotaInput>, warnPercent: Int, critPercent: Int): QuotaGaugeWidget =
-        QuotaGaugeWidget(
-            items = inputs.map { quotaItem(it.resource, it.used, it.max, warnPercent, critPercent) },
-            empty = inputs.isEmpty(),
-        )
 
     /**
      * status 분포 → status_donut 위젯(REAL).

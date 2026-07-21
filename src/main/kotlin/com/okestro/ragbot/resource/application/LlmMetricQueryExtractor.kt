@@ -74,8 +74,6 @@ class LlmMetricQueryExtractor(
                 log.info("extraction-resolved target=STATUS question=\"{}\" confidence={}", question, confidence)
             is ResourceExtraction.ThresholdResolved ->
                 log.info("extraction-resolved target=THRESHOLD question=\"{}\" confidence={}", question, confidence)
-            is ResourceExtraction.QuotaResolved ->
-                log.info("extraction-resolved target=QUOTA question=\"{}\" project={} confidence={}", question, result.project, confidence)
             is ResourceExtraction.ProjectUsageResolved ->
                 log.info("extraction-resolved target=PROJECT_USAGE question=\"{}\" confidence={}", question, confidence)
             is ResourceExtraction.NeedsClarification ->
@@ -94,7 +92,6 @@ class LlmMetricQueryExtractor(
             "INVENTORY" -> toInventory(raw)
             "STATUS" -> ResourceExtraction.StatusResolved       // 조건 없음 — 쿼리 고정
             "THRESHOLD" -> ResourceExtraction.ThresholdResolved // 임계값은 application.yml에서
-            "QUOTA" -> toQuota(raw)
             "PROJECT_USAGE" -> ResourceExtraction.ProjectUsageResolved  // 조건 없음 — 전체 tenant 비교
             else -> toMetric(raw)
         }
@@ -117,13 +114,6 @@ class LlmMetricQueryExtractor(
             )
         )
     }
-
-    /**
-     * QUOTA는 대상 테넌트가 있어야 게이지를 채울 수 있지만, "없으면 되묻는다"는 결정은
-     * 서비스 계층으로 옮겼다(호출부 컨텍스트로 폴백할 여지를 주기 위해). 여기서는 그대로 싣기만 한다.
-     */
-    private fun toQuota(raw: RawExtraction): ResourceExtraction =
-        ResourceExtraction.QuotaResolved(raw.project?.takeIf { it.isNotBlank() })
 
     private fun toInventory(raw: RawExtraction): ResourceExtraction {
         val kind = runCatching { InventoryKind.valueOf(raw.kind) }.getOrElse {
