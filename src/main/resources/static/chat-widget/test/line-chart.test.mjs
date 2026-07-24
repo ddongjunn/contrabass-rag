@@ -49,11 +49,12 @@ test("metric_line single series: no legend box (제목이 이미 말한다)", ()
   assert.equal(find(node, "legend"), null);
 });
 
-test("metric_line header shows title and range", () => {
+test("metric_line header: 지표 태그 + 제목 + 범위", () => {
   const node = buildLineChart(cpu);
   const texts = [];
   (function walk(n) { if (n.text != null) texts.push(n.text); (n.children || []).forEach(walk); })(node);
-  assert.ok(texts.includes("CPU 사용률 추이"));
+  assert.ok(texts.includes("CPU"), "지표 태그");
+  assert.ok(texts.includes("사용률 추이"), "태그 뒤 제목");
   assert.ok(texts.some((t) => t.includes("1h")));
 });
 

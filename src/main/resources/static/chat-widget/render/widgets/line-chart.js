@@ -1,4 +1,5 @@
 import { h } from "../dom.js";
+import { buildHead } from "./head.js";
 
 // 정규화 좌표계 + preserveAspectRatio=none + 높이는 CSS 고정(170px).
 // viewBox를 비율째 확대하면 넓은 임베드에서 선·글자·점이 통째로 비대해진다(실화면 확인 2026-07-24).
@@ -66,10 +67,7 @@ export function buildLineChart(w) {
   });
 
   const children = [
-    h("div", { className: "eyebrow" }, [
-      h("span", { text: w.title }),
-      h("span", { text: `최근 ${w.range}` }),
-    ]),
+    buildHead(w.title, `최근 ${w.range}`),
     // y축 라벨은 HTML(스케일 안 탐) — 그리드 0/50/100% 지점과 정렬
     h("div", { className: "lc-wrap" }, [
       h("div", { className: "lc-yaxis" }, [

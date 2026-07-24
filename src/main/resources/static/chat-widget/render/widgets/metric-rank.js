@@ -1,5 +1,6 @@
 import { h } from "../dom.js";
 import { barWidth } from "../format.js";
+import { buildHead } from "./head.js";
 
 const SEV_CLASS = { GOOD: "sev-good", WARN: "sev-warn", CRIT: "sev-crit" };
 function sevClass(sev) {
@@ -38,10 +39,7 @@ export function buildMetricRank(w) {
     return h("div", { className: "rk" }, rowChildren);
   });
   return h("div", { className: "card widget" }, [
-    h("div", { className: "eyebrow" }, [
-      h("span", { text: w.title }),
-      h("span", { text: `최근 ${w.window}` }),
-    ]),
+    buildHead(w.title, `최근 ${w.window}`),
     ...rows,
     // promql 근거는 API 계약(w.promql)엔 유지하되 화면엔 표기하지 않는다(사용자 결정 2026-07-24).
   ]);

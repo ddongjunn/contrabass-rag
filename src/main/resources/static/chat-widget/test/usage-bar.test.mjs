@@ -19,7 +19,9 @@ const w = {
 test("usage_bar renders one row per item with title", () => {
   const node = buildUsageBar(w);
   assert.equal(findAll(node, "rk").length, 2);
-  assert.equal(findAll(node, "eyebrow")[0].children[0].text, "네트워크별 IP 사용률");
+  // 헤더: [IP] 태그 + 제목(태그 채널이 지표 종류를 강조 — 실사용 피드백)
+  assert.equal(findAll(node, "wg-tag")[0].text, "IP");
+  assert.equal(findAll(node, "wg-title")[0].text, "네트워크별 IP 사용률");
 });
 
 test("usage_bar width from value, severity color", () => {

@@ -1,5 +1,6 @@
 import { h } from "../dom.js";
 import { clampPct } from "../format.js";
+import { buildHead } from "./head.js";
 
 const SEV_CLASS = { GOOD: "sev-good", WARN: "sev-warn", CRIT: "sev-crit" };
 
@@ -17,7 +18,7 @@ function usageRow(row) {
 
 export function buildUsageBar(w) {
   return h("div", { className: "card widget" }, [
-    h("div", { className: "eyebrow" }, [h("span", { text: w.title })]),
+    buildHead(w.title, null),
     ...w.rows.map(usageRow),
   ]);
 }
