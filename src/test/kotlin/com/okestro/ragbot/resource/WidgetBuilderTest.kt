@@ -52,24 +52,6 @@ class WidgetBuilderTest {
         assertNull(bpsWidget.rows[0].severity)
     }
 
-    @Test
-    fun `쿼터 무제한(-1) → quota-ratio-severity null, display N 무제한`() {
-        val item = WidgetBuilder.quotaItem("vCPU", used = 820.0, quota = -1.0, warnPercent = 70, critPercent = 85)
-        assertNull(item.quota)
-        assertNull(item.ratio)
-        assertNull(item.severity)
-        assertEquals("820 / 무제한", item.display)
-    }
-
-    @Test
-    fun `쿼터 정상 한도 → ratio-severity 계산, display used 슬래시 quota`() {
-        val item = WidgetBuilder.quotaItem("vCPU", used = 820.0, quota = 1000.0, warnPercent = 70, critPercent = 85)
-        assertEquals(1000.0, item.quota)
-        assertEquals(0.82, item.ratio!!, 1e-9)
-        assertEquals(Severity.WARN, item.severity) // 82% ∈ [70,85)
-        assertEquals("820 / 1000", item.display)
-    }
-
     // ── status_donut (1b) ──────────────────────────────────────────────────────
 
     /** count by(status)(...) 결과 한 건. 라벨 status + 개수. */

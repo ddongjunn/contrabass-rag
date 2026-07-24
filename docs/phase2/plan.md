@@ -44,8 +44,8 @@ R4 이후 RESOURCE 경로에 세 가지가 추가됐다 — 계획·근거는
   설정 `app.resource.trend.*`(default-range/points/max-series). 조인 우측 dedupe 필수(422 실측).
 - **REST 히스토리**: `ChatRequest.history` → `ChatCommand.history` 합류(Slack과 동일 seam·상한).
   추출 프롬프트에 맥락 상속 few-shot — "admin 프로젝트만", "추이로 보여줘" 후속질문 동작(실측).
-- **QUOTA 복원**: 37d8d09 revert. 실 Prometheus에 limits 메트릭이 없어 빈 위젯 응답(코드 정상,
-  exporter 복구 대기).
+- **QUOTA는 제거 확정**: 실 Prometheus에 limits 메트릭이 없다(정책: 실존 메트릭만 지원).
+  ⚠️ PROJECT_USAGE도 같은 limits 의존이라 현 환경에선 빈 위젯 — 유지·제거는 팀 결정 필요.
 
 ### 다음 할 일
 

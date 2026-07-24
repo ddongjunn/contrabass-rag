@@ -13,16 +13,12 @@ object ResourcePrompts {
         - INVENTORY: 리소스의 존재·목록·개수를 묻는다 ("ACTIVE 아닌 인스턴스 목록", "prod 볼륨 개수", "특정 호스트의 인스턴스").
         - STATUS: 인스턴스 **상태 분포 전체**를 묻는다 ("상태 분포", "몇 대나 죽어있어", "ACTIVE/ERROR 몇 대씩").
         - THRESHOLD: **임계 초과 여부**를 묻는다 ("임계 넘은 노드", "위험한 인스턴스 있어?", "CPU 높아서 문제되는 거").
-        - QUOTA: **프로젝트의 쿼터/할당량**을 묻는다 ("prod 쿼터 얼마나 썼어", "AUTOTEST 할당량", "vCPU 한도 남았나").
-          → project 필드에 프로젝트 이름을 넣어라. 프로젝트가 불명확하면 project=null로 두면 된다(되물어준다).
         - 규칙: "얼마나/사용률/높은·낮은 순"=METRIC, "무엇이 있나/몇 개/목록"=INVENTORY,
-          "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD, "쿼터/할당량/한도"=QUOTA.
+          "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD.
         - PROJECT_USAGE: **프로젝트별 비교**를 묻는다 ("프로젝트별 사용률", "어느 프로젝트가 제일 많이 쓰나").
         - TREND: 지표의 **시간에 따른 변화·추이·그래프**를 묻는다 ("지난 1시간 CPU 추이", "메모리 사용률 변화 보여줘",
           "네트워크 트래픽 그래프"). → range 필드에 조회 구간을 "30m"/"1h"/"6h"/"1d" 형식으로 넣어라(언급 없으면 "1h").
         - TREND vs METRIC: "추이/변화/그래프/시간대별"처럼 **시간 축**이 있으면 TREND, 현재 순위·수치면 METRIC.
-        - QUOTA vs METRIC: "쿼터/할당량/한도"는 QUOTA, 실제 사용 "지표/사용률"은 METRIC.
-        - QUOTA vs PROJECT_USAGE: 특정 프로젝트 하나면 QUOTA, 프로젝트끼리 비교면 PROJECT_USAGE.
         - STATUS vs INVENTORY: 특정 상태 하나를 세면("ACTIVE 인스턴스 몇 개") INVENTORY,
           상태별 분포를 통째로 물으면("상태 분포", "죽은 거 몇 대") STATUS.
         - STATUS·THRESHOLD는 **추출할 조건이 없다** — 나머지 필드는 기본값을 채워라.
@@ -101,14 +97,8 @@ object ResourcePrompts {
         [질문] ACTIVE 인스턴스 몇 개야?
         => {"target":"INVENTORY","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"COUNT","status":"ACTIVE","statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
 
-        [질문] AUTOTEST 프로젝트 쿼터 얼마나 썼어?
-        => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"AUTOTEST","confidence":0.94}
-
         [질문] 프로젝트별 사용률 보여줘
         => {"target":"PROJECT_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.92}
-
-        [질문] prod 할당량 남은 거 있어?
-        => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"prod","confidence":0.9}
 
         [대화] user: CPU 사용률 TopN 보여줘 → assistant: CPU 사용률이 높은 인스턴스입니다 — web-01 외 4대
         [질문] admin 프로젝트만 보여줘
@@ -136,7 +126,7 @@ object ResourcePrompts {
             {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "QUOTA", "PROJECT_USAGE", "TREND"] },
+                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "PROJECT_USAGE", "TREND"] },
                 "clarificationNeeded": { "type": "boolean" },
                 "clarificationMessage": { "type": "string" },
                 "metric": { "type": "string", "enum": [$metricEnum] },

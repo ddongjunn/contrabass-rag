@@ -20,7 +20,6 @@ enum class Severity { GOOD, WARN, CRIT }
     JsonSubTypes.Type(value = InventoryCountWidget::class, name = "inventory_count"),
     JsonSubTypes.Type(value = ProjectUsageBarWidget::class, name = "project_usage_bar"),
     JsonSubTypes.Type(value = StatusDonutWidget::class, name = "status_donut"),
-    JsonSubTypes.Type(value = QuotaGaugeWidget::class, name = "quota_gauge"),
     JsonSubTypes.Type(value = ThresholdBannerWidget::class, name = "threshold_banner"),
     JsonSubTypes.Type(value = MetricLineWidget::class, name = "metric_line"),
     // Phase 2: JsonSubTypes.Type(ResourceDashboardWidget::class, name = "resource_dashboard")
@@ -79,24 +78,6 @@ data class StatusDonutWidget(
 ) : Widget { override val type = "status_donut" }
 
 data class StatusSegment(val status: String, val count: Int, val level: String)  // level: good|warn|crit|muted
-
-/**
- * 쿼터 사용량/한도 게이지(복수). 무제한(quota<0)이면 quota/ratio/severity를 null로 두고
- * display를 "N / 무제한"으로 낸다(설계 §4.2 quota_gauge).
- */
-data class QuotaGaugeWidget(
-    val items: List<QuotaItem>,
-    val empty: Boolean = false, // 결과 0건 → 빈 상태 카드. 프로젝트명이 안 맞으면 흔히 발생한다.
-) : Widget { override val type = "quota_gauge" }
-
-data class QuotaItem(
-    val resource: String,
-    val used: Double,
-    val quota: Double?,     // 무제한 → null
-    val ratio: Double?,     // 무제한 → null
-    val display: String,
-    val severity: Severity?,
-)
 
 /** Prometheus query_range 시계열 → 라인그래프. TrendQuery + List<RangeSeries> → 변환. */
 data class MetricLineWidget(

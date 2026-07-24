@@ -161,7 +161,7 @@ VM 배포 (앱 + pgvector 컨테이너):
 생성 LLM 호출 없이 **추출 1회**로 실시간 데이터를 반환합니다. 라우터는 `DOC/RESOURCE/CLARIFY`로
 동결돼 있고, RESOURCE 내부 분기는 추출 LLM의 `target` 판별자가 담당합니다(추가 호출 없음).
 
-**target 7종** (`ResourceExtraction`):
+**target 6종** (`ResourceExtraction`):
 
 | target | 질문 예 | 결과 | 위젯 |
 |---|---|---|---|
@@ -170,12 +170,11 @@ VM 배포 (앱 + pgvector 컨테이너):
 | `INVENTORY` | "볼륨 몇 개?" | cb_common COUNT/LIST | `inventory_count` |
 | `STATUS` | "상태 분포", "죽어있는 거 몇 대" | `count by(status)(openstack_nova_server_status)` | `status_donut` |
 | `THRESHOLD` | "임계 넘은 노드 있어?" | CPU 사용률 > `crit-percent` | `threshold_banner` |
-| `QUOTA` | "AUTOTEST 쿼터 얼마나 썼어?" | `openstack_{nova,cinder}_limits_*` (tenant별) | `quota_gauge` |
 | `PROJECT_USAGE` | "프로젝트별 사용률" | tenant별 쿼터 사용률 | `project_usage_bar` |
 
-> ⚠️ `QUOTA`/`PROJECT_USAGE`는 Prometheus에 `openstack_*_limits_*` 메트릭이 수집돼야 데이터가
-> 나온다. 현 환경 실측(2026-07-24) 기준 limits 계열 0건 — 코드는 빈 위젯으로 안전하게 응답하며,
-> exporter에서 limits 수집이 복구되면 그대로 동작한다.
+> QUOTA target은 실 Prometheus에 `openstack_*_limits_*` 메트릭이 없어 제거됐다(정책: 실존
+> 메트릭만 지원). ⚠️ `PROJECT_USAGE`도 같은 limits 메트릭에 의존한다 — 현 환경 실측(2026-07-24)
+> 기준 0건이라 빈 위젯이 나온다(유지·제거는 팀 결정 필요).
 
 **TREND 설정** (`app.resource.trend.*`): `default-range`(기본 1h) · `points`(스텝 수, 기본 60) ·
 `max-series`(라인 상한, 기본 5 — 마지막 값 기준 상위만)
