@@ -48,6 +48,11 @@ object ResourcePrompts {
         - instanceCreateEnable: 볼륨 스냅샷의 인스턴스 생성 가능 여부(true/false, 없으면 null)
         - project: 프로젝트 필터(없으면 null)
 
+        미지원 질문:
+        - **쿼터/할당량/한도**와 **프로젝트별 사용률 비교** 질문은 지원하지 않는다(관련 메트릭 미수집). 절대 INVENTORY 등
+          다른 target으로 우겨넣지 마라 — clarificationNeeded=true로 두고 clarificationMessage에
+          "쿼터·할당량 조회는 지원하지 않습니다. 실시간 사용률(CPU/메모리 등), 스토리지 용량, 네트워크 IP 사용률은 조회할 수 있어요."를 넣어라.
+
         공통 규칙:
         - 직전 대화가 있으면 현재 질문은 그 **후속 조회**일 수 있다. 빠진 조건(지표·대상)은 대화에서
           상속해라 — 예: 직전에 CPU 사용률을 보여줬고 지금 "admin 프로젝트만"이라면
@@ -102,6 +107,9 @@ object ResourcePrompts {
 
         [질문] ACTIVE 인스턴스 몇 개야?
         => {"target":"INVENTORY","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"COUNT","status":"ACTIVE","statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
+
+        [질문] AUTOTEST 쿼터 얼마나 썼어?
+        => {"target":"METRIC","clarificationNeeded":true,"clarificationMessage":"쿼터·할당량 조회는 지원하지 않습니다. 실시간 사용률(CPU/메모리 등), 스토리지 용량, 네트워크 IP 사용률은 조회할 수 있어요.","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"AUTOTEST","confidence":0.9}
 
         [질문] 네트워크 IP 얼마나 남았어?
         => {"target":"IP_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.93}
