@@ -571,10 +571,10 @@ textarea:focus-visible {
    이름·값 칸을 고정폭으로 둬서 행마다 텍스트 길이가 달라도 항상 같은 지점에서 정렬된다. */
 .rk { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 11px; }
 .rk:last-child { margin-bottom: 0; }
-.rk-name { flex: 0 0 100px; width: 100px; display: flex; flex-direction: column; overflow: hidden; }
+.rk-name { flex: 1 1 100px; min-width: 100px; max-width: 45%; display: flex; flex-direction: column; overflow: hidden; }
 .rk-nm { font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rk-prj { font-size: 10.5px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rk-track { flex: 1 1 auto; height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.rk-track { flex: 2 1 80px; height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; }
 /* 막대 마크(dataviz 스펙): 기준선(왼쪽)은 각지고, 값 끝(오른쪽)만 둥글게. */
 .rk-track > i { display: block; height: 100%; border-radius: 0 4px 4px 0; }
 .rk-val { flex: 0 0 64px; width: 64px; text-align: right; font-size: 13.5px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }

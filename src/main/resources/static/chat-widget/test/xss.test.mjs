@@ -10,7 +10,9 @@ const EVIL = '<img src=x onerror=alert(1)>"><script>alert(2)</script>';
 // PlainNode 트리를 순회하며 모든 attrs 값에 EVIL 원문이 없는지, text에는 있는지 수집
 function walk(node, out) {
   if (node.text != null) out.texts.push(node.text);
-  if (node.attrs) out.attrVals.push(...Object.values(node.attrs).map(String));
+  // title은 허용된 텍스트 싱크다 — mount()가 setAttribute로 넣고 브라우저는 마크업 해석 없이
+  // 툴팁 평문으로만 쓴다(말줄임 이름 호버 표시용). 그 외 속성엔 사용자 문자열 금지 유지.
+  if (node.attrs) out.attrVals.push(...Object.entries(node.attrs).filter(([k]) => k !== "title").map(([, v]) => String(v)));
   for (const c of node.children || []) walk(c, out);
   return out;
 }

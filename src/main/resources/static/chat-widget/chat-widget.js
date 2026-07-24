@@ -232,10 +232,8 @@ import {
         if (message.loading) {
           body.append(renderTyping());
         } else if (widgets.length > 0) {
-          const cap = document.createElement("div");
-          cap.className = "cap";
-          cap.textContent = message.content;
-          body.append(cap);
+          // 평문(answer)은 위젯과 내용이 중복이라 화면엔 위젯만 그린다(사용자 결정 2026-07-24).
+          // answer 자체는 계약 불변 — Slack·스크린리더·위젯 없음 폴백이 계속 쓴다.
           widgets.forEach((w) => {
             const node = buildWidget(w);
             if (node) body.append(mount(node));

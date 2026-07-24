@@ -24,8 +24,9 @@ export function buildMetricRank(w) {
   const max = w.rows.reduce((m, r) => Math.max(m, r.value), 0);
   const rows = w.rows.map((r) => {
     const width = Math.max(2, barWidth(r.value, max));
-    const nameCell = [h("span", { className: "rk-nm", text: r.instanceName })];
-    if (r.projectName) nameCell.push(h("span", { className: "rk-prj", text: r.projectName }));
+    // title = 호버 시 전체 이름(말줄임 대비). setAttribute 텍스트 싱크라 마크업 해석 없음.
+    const nameCell = [h("span", { className: "rk-nm", text: r.instanceName, attrs: { title: r.instanceName } })];
+    if (r.projectName) nameCell.push(h("span", { className: "rk-prj", text: r.projectName, attrs: { title: r.projectName } }));
     const rowChildren = [
       h("div", { className: "rk-name" }, nameCell),
       h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
