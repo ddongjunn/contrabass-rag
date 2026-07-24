@@ -83,7 +83,11 @@ class DefaultResourceService(
 
         val series = prometheus.queryRange(promql, start, end, step)
         val widget = WidgetBuilder.metricLine(query, series, promql, entry.unit, trend.maxSeries)
-        return ResourceService.Result(TrendAnswerTemplate.render(widget), widgets = listOf(widget))
+        return ResourceService.Result(
+            TrendAnswerTemplate.render(widget),
+            widgets = listOf(widget),
+            followups = FollowupBuilder.forTrend(query),
+        )
     }
 
     // ── STATUS / THRESHOLD 트랙 ────────────────────────────────────────────────
@@ -146,7 +150,9 @@ class DefaultResourceService(
             "네트워크별 IP 사용률", "%", inputs, sev.warnPercent, sev.critPercent,
             properties.resource.widgets.usageTopN,
         )
-        return ResourceService.Result(UsageAnswerTemplate.render(widget), widgets = listOf(widget))
+        return ResourceService.Result(
+            UsageAnswerTemplate.render(widget), widgets = listOf(widget), followups = FollowupBuilder.forIpUsage(),
+        )
     }
 
     /**
@@ -180,7 +186,9 @@ class DefaultResourceService(
             "스토리지 용량", "%", inputs, sev.warnPercent, sev.critPercent,
             properties.resource.widgets.usageTopN,
         )
-        return ResourceService.Result(UsageAnswerTemplate.render(widget), widgets = listOf(widget))
+        return ResourceService.Result(
+            UsageAnswerTemplate.render(widget), widgets = listOf(widget), followups = FollowupBuilder.forCapacity(),
+        )
     }
 
     /** AGENT 트랙 — 다운 에이전트 검사. `== 0`이라 결과 0건 = 전부 정상(실측: 44개 전부 up). */
@@ -192,7 +200,9 @@ class DefaultResourceService(
                 "$service@${s.labels["hostname"] ?: "?"}"
             }
         val widget = WidgetBuilder.agentDownBanner(offenders)
-        return ResourceService.Result(AgentAnswerTemplate.render(widget), widgets = listOf(widget))
+        return ResourceService.Result(
+            AgentAnswerTemplate.render(widget), widgets = listOf(widget), followups = FollowupBuilder.forAgent(),
+        )
     }
 
     private fun tb(bytes: Double) = "%.1f TB".format(bytes / 1_099_511_627_776.0)

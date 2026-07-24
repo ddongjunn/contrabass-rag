@@ -62,7 +62,7 @@ app:
     # table:                                  # 이 앱 소유 — 고도화 착수 시 기입
   guard:
     max-question-len: 1000
-    rate-per-min: 5                           # 사용자(Slack user_id)별 분당 한도 — RateLimiterRegistry 키별 적용(M5)
+    rate-per-min: 10                          # 사용자별 분당 한도. 5는 칩 후속질문 UX에서 실사용자도 걸렸다(실측 2026-07-24)
     moderation:
       enabled: true
       model: omni-moderation-latest

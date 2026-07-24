@@ -47,6 +47,14 @@ R4 이후 RESOURCE 경로에 세 가지가 추가됐다 — 계획·근거는
 - **QUOTA는 제거 확정**: 실 Prometheus에 limits 메트릭이 없다(정책: 실존 메트릭만 지원).
   ⚠️ PROJECT_USAGE도 같은 limits 의존이라 현 환경에선 빈 위젯 — 유지·제거는 팀 결정 필요.
 
+### 남은 과제 (2026-07-24 리뷰에서 판단 보류한 것)
+
+- **인가 부재**: 프로젝트 이름만 알면 남의 프로젝트 지표 조회 가능. 포털 로그인 사용자 ↔
+  프로젝트 매핑 소스가 정해져야 구현 가능 — 팀 설계 결정 필요(쿼터 리뷰 때부터 표기된 과제).
+- **서버 INVENTORY 활성화**: `RESOURCE_INVENTORY_ENABLED=true` + `DP_COMMON_*` env 필요(운영 결정).
+- **정확도 테스트 확장**: 실 OpenAI 정확도 테스트(MetricExtractionAccuracyTest 등)에 신규 target
+  (TREND/IP_USAGE/CAPACITY/AGENT) 질문 셋 추가 — 배선 가드는 있으나 라이브 분류 품질 회귀 감지용.
+
 ### 다음 할 일
 
 **R4까지 코드 완료. Slack 사용자 검수 단계.** `docs/phase2/plan.md §Phase R4 DoD` 항목을 실제 Slack에서 확인한다.
