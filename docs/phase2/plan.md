@@ -35,6 +35,18 @@ export $(grep -v '^#' .env | xargs) && ./gradlew resourceCli -q --console=plain
 export $(grep -v '^#' .env | xargs) && SLACK_APP_TOKEN= SLACK_BOT_TOKEN= ./gradlew bootRun
 ```
 
+### 이후 확장 (2026-07-24)
+
+R4 이후 RESOURCE 경로에 세 가지가 추가됐다 — 계획·근거는
+[`superpowers/plans/2026-07-24-quota-timeseries-history.md`](../superpowers/plans/2026-07-24-quota-timeseries-history.md):
+
+- **TREND 트랙**: "추이" 질문 → `/api/v1/query_range` → `metric_line` 라인그래프 위젯.
+  설정 `app.resource.trend.*`(default-range/points/max-series). 조인 우측 dedupe 필수(422 실측).
+- **REST 히스토리**: `ChatRequest.history` → `ChatCommand.history` 합류(Slack과 동일 seam·상한).
+  추출 프롬프트에 맥락 상속 few-shot — "admin 프로젝트만", "추이로 보여줘" 후속질문 동작(실측).
+- **QUOTA 복원**: 37d8d09 revert. 실 Prometheus에 limits 메트릭이 없어 빈 위젯 응답(코드 정상,
+  exporter 복구 대기).
+
 ### 다음 할 일
 
 **R4까지 코드 완료. Slack 사용자 검수 단계.** `docs/phase2/plan.md §Phase R4 DoD` 항목을 실제 Slack에서 확인한다.
