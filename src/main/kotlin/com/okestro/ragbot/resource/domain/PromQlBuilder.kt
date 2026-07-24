@@ -47,11 +47,20 @@ object PromQlBuilder {
 
     private fun infoSelector(project: String?, instanceName: String?): String {
         val filters = listOfNotNull(
-            project?.let { """project_name="$it"""" },
-            instanceName?.let { """instance_name="$it"""" },
+            project?.let { """project_name="${escapeLabel(it)}"""" },
+            instanceName?.let { """instance_name="${escapeLabel(it)}"""" },
         )
         return if (filters.isEmpty()) INFO_METRIC else "$INFO_METRIC{${filters.joinToString(",")}}"
     }
+
+    /**
+     * PromQL 라벨값 이스케이프. project·instanceName은 **LLM이 사용자 질문에서 뽑은 자유 문자열**이라
+     * 그대로 넣으면 셀렉터를 닫고 다른 필터를 붙일 수 있다(쿼터 경로 리뷰에서 실증된 패턴 —
+     * 그 경로가 삭제되면서 이스케이프도 함께 사라져 여기로 되살린다). 정확 일치 매처라 위험한 건
+     * `"`와 `\` 둘뿐이고, 이스케이프하면 그런 이름을 찾다 0건으로 안전하게 떨어진다.
+     */
+    private fun escapeLabel(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     // rate ÷ vCPUs × 100 — CPU 사용률(%)
     // max by(domain): 동일 domain이 여러 hypervisor에 중복 집계될 때 many-to-many 방지

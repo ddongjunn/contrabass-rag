@@ -121,6 +121,18 @@ class PromQlBuilderTest {
     }
 
     @Test
+    fun `project 라벨값의 따옴표·역슬래시는 이스케이프된다 - 셀렉터 탈출 방지`() {
+        // LLM이 사용자 질문에서 뽑은 자유 문자열이다 — 그대로 넣으면 셀렉터를 닫고 다른
+        // 프로젝트를 붙일 수 있다(쿼터 경로 리뷰에서 실증된 패턴, 경로 삭제로 이스케이프도 사라졌었다).
+        val query = ResourceQuery(metric = MetricPattern.INSTANCE_CPU, project = """a"} or {x="admin""")
+
+        val result = PromQlBuilder.build(query, cpu)
+
+        assertThat(result).contains("""project_name="a\"} or {x=\"admin"""")
+        assertThat(result).doesNotContain("""project_name="a"}""")
+    }
+
+    @Test
     fun `GAUGE_RAW - 조인 없이 raw 표현식 그대로 (TREND)`() {
         val entry = MetricCatalogEntry(PromPattern.GAUGE_RAW, "openstack_nova_total_vms", "대")
 
