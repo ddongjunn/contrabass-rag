@@ -114,6 +114,10 @@ object ResourcePrompts {
         [질문] admin 프로젝트만 보여줘
         => {"target":"METRIC","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"admin","confidence":0.9}
 
+        [대화] user: CPU 사용량 높은 VM 보여줘 → assistant: 몇 개 보여드릴까요?
+        [질문] 5
+        => {"target":"METRIC","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
+
         [대화] user: 메모리 많이 쓰는 인스턴스 보여줘 → assistant: 메모리 사용률이 높은 인스턴스입니다 — db-01 외 4대
         [질문] 추이로 보여줘
         => {"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}

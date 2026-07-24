@@ -73,7 +73,8 @@ app:
     model: gpt-4o-mini                        # 라우팅용 작고 빠른 모델
     temperature: 0.0
     min-confidence: 0.5                        # 미만이면 CLARIFY 폴백
-    history-turns: 2                           # 라우터가 LLM에 넘기는 최근 메시지 수(현재 질문 포함)
+    history-turns: 4                           # 라우터가 LLM에 넘기는 최근 메시지 수(현재 질문 포함).
+                                               # 2면 "되물음→짧은 답"에서 원 질문이 잘려 맥락을 잃는다(실측 2026-07-24)
   resource:
     extraction-model: gpt-4o-mini             # 조건추출용 작고 빠른 모델
     temperature: 0.0

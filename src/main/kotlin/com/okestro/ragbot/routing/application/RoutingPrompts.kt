@@ -48,6 +48,10 @@ object RoutingPrompts {
         [질문] 1번 인스턴스 상세 알려줘
         => {"route":"RESOURCE","confidence":0.9,"reason":"직전 턴 인스턴스 목록 맥락에 의존한 후속 조회"}
 
+        [대화] user: CPU 사용량 높은 VM 보여줘 → assistant: 몇 개 보여드릴까요?
+        [질문] 5
+        => {"route":"RESOURCE","confidence":0.9,"reason":"봇 되물음에 대한 답 — 원 질문(지표 조회)의 연속"}
+
         [대화] (없음)
         [질문] 그거 어떻게 해?
         => {"route":"CLARIFY","confidence":0.85,"reason":"지시 대상 불명확, 맥락 없음"}

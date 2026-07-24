@@ -151,7 +151,7 @@ VM 배포 (앱 + pgvector 컨테이너):
 | `model` | 라우팅 모델 | `gpt-4o-mini` |
 | `temperature` | 샘플링 온도 | `0.0` |
 | `min-confidence` | 미만이면 CLARIFY | `0.5` |
-| `history-turns` | LLM에 넘기는 최근 메시지 수 | `2` |
+| `history-turns` | LLM에 넘기는 최근 메시지 수(현재 질문 포함). 되물음→짧은 답 흐름까지 보려면 4 필요 | `4` |
 
 수동 CLI: `OPENAI_API_KEY=sk-... ./gradlew routingCli -q --console=plain`
 
