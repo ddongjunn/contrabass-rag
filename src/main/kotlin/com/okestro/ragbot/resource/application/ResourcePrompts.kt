@@ -47,6 +47,9 @@ object ResourcePrompts {
         - project: 프로젝트 필터(없으면 null)
 
         공통 규칙:
+        - 직전 대화가 있으면 현재 질문은 그 **후속 조회**일 수 있다. 빠진 조건(지표·대상)은 대화에서
+          상속해라 — 예: 직전에 CPU 사용률을 보여줬고 지금 "admin 프로젝트만"이라면
+          target=METRIC, metric=INSTANCE_CPU에 project=admin만 바꾼 것이다(clarificationNeeded=false).
         - target과 핵심 대상(metric 또는 kind)이 불명확할 때만 clarificationNeeded=true.
         - 언급 없는 보조 필드는 절대 clarificationNeeded=true로 만들지 않는다 → 기본/null 사용.
         - confidence는 0~1 확신도. 명확하면 0.8 이상, 모호하면 0.5 미만.
@@ -106,6 +109,14 @@ object ResourcePrompts {
 
         [질문] prod 할당량 남은 거 있어?
         => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"prod","confidence":0.9}
+
+        [대화] user: CPU 사용률 TopN 보여줘 → assistant: CPU 사용률이 높은 인스턴스입니다 — web-01 외 4대
+        [질문] admin 프로젝트만 보여줘
+        => {"target":"METRIC","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"admin","confidence":0.9}
+
+        [대화] user: 메모리 많이 쓰는 인스턴스 보여줘 → assistant: 메모리 사용률이 높은 인스턴스입니다 — db-01 외 4대
+        [질문] 추이로 보여줘
+        => {"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
 
         [질문] 지난 1시간 CPU 사용률 추이 보여줘
         => {"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.94}

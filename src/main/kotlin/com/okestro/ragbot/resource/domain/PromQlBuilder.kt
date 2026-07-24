@@ -20,9 +20,13 @@ object PromQlBuilder {
     /**
      * TREND(query_range)용 — topk 래핑 없이 표현식만. 순위는 시점마다 달라져 topk를 넣으면
      * 시리즈 구성원이 스텝마다 바뀐다(구멍 난 라인). 시리즈 상한은 WidgetBuilder가 마지막 값 기준으로 자른다.
+     *
+     * 조인 우측(info 메트릭)은 max by(...)로 dedupe한다 — query_range에선 domain당 중복 시리즈
+     * (하이퍼바이저 라벨 차이 등)가 구간 안에 실존해 many-to-many 422가 난다(실측 2026-07-24).
+     * instant 경로(build)는 현재 운영에서 문제가 없어 그대로 둔다.
      */
     fun buildTrend(query: TrendQuery, entry: MetricCatalogEntry): String {
-        val enrich = enrich(query.project, query.instanceName)
+        val enrich = trendEnrich(query.project, query.instanceName)
         return when (entry.pattern) {
             PromPattern.RATIO_TOPK ->
                 "(sum by(domain)(rate(${entry.rawMetric}[${query.window}])) " +
@@ -32,14 +36,19 @@ object PromQlBuilder {
         }
     }
 
-    private fun enrich(project: String?, instanceName: String?): String {
+    private fun enrich(project: String?, instanceName: String?): String =
+        "* on(domain) group_left(instance_name, project_name) ${infoSelector(project, instanceName)}"
+
+    private fun trendEnrich(project: String?, instanceName: String?): String =
+        "* on(domain) group_left(instance_name, project_name) " +
+            "max by(domain, instance_name, project_name)(${infoSelector(project, instanceName)})"
+
+    private fun infoSelector(project: String?, instanceName: String?): String {
         val filters = listOfNotNull(
             project?.let { """project_name="$it"""" },
             instanceName?.let { """instance_name="$it"""" },
         )
-        val infoSelector = if (filters.isEmpty()) INFO_METRIC
-                           else "$INFO_METRIC{${filters.joinToString(",")}}"
-        return "* on(domain) group_left(instance_name, project_name) $infoSelector"
+        return if (filters.isEmpty()) INFO_METRIC else "$INFO_METRIC{${filters.joinToString(",")}}"
     }
 
     // rate ÷ vCPUs × 100 — CPU 사용률(%)

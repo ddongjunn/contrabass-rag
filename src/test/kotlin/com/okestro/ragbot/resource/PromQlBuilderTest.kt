@@ -126,10 +126,13 @@ class PromQlBuilderTest {
 
         val result = PromQlBuilder.buildTrend(query, cpu)
 
+        // 조인 우측은 dedupe 필수 — query_range에선 info 메트릭이 domain당 중복 시리즈(하이퍼바이저
+        // 라벨 차이)를 갖는 구간이 실존해 many-to-many 422가 난다(실측 2026-07-24).
         assertThat(result).isEqualTo(
             "(sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) " +
                 "/ on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) " +
-                "* on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info"
+                "* on(domain) group_left(instance_name, project_name) " +
+                "max by(domain, instance_name, project_name)(libvirt_domain_openstack_info)"
         )
     }
 
@@ -151,7 +154,8 @@ class PromQlBuilderTest {
 
         assertThat(result).isEqualTo(
             "sum by(domain)(rate(libvirt_domain_interface_stats_receive_bytes_total[5m])) " +
-                "* on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info"
+                "* on(domain) group_left(instance_name, project_name) " +
+                "max by(domain, instance_name, project_name)(libvirt_domain_openstack_info)"
         )
     }
 
