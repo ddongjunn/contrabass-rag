@@ -98,6 +98,39 @@
           followups: ["ERROR 인스턴스 목록"],
         },
         {
+          label: "metric_line — CPU 추이 (멀티시리즈)",
+          answer: "최근 1h CPU 사용률 추이입니다 — web-prod-07, api-prod-02, batch-11.",
+          widgets: [{
+            type: "metric_line", title: "CPU 사용률 추이", unit: "%", range: "1h",
+            // 실물 쿼리 그대로 — 목업을 줄이면 카드 폭 문제를 설계에서 못 본다(metric_rank 전례)
+            promql: "(sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) / on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) * on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info",
+            empty: false,
+            series: [
+              { name: "web-prod-07", projectName: "service-prod",
+                points: Array.from({ length: 13 }, (_, i) => ({ ts: 1753340400 + i * 300, value: 55 + 25 * Math.sin(i / 3) + i })) },
+              { name: "api-prod-02", projectName: "service-prod",
+                points: Array.from({ length: 13 }, (_, i) => ({ ts: 1753340400 + i * 300, value: 40 + 10 * Math.cos(i / 2) })) },
+              { name: "batch-11", projectName: "data-platform",
+                points: Array.from({ length: 13 }, (_, i) => ({ ts: 1753340400 + i * 300, value: 12 + (i % 4) * 3 })) },
+            ],
+          }],
+          followups: [],
+        },
+        {
+          label: "metric_line — 단일 시리즈(레전드 없음)",
+          answer: "최근 6h web-server-01 메모리 사용률 추이입니다.",
+          widgets: [{
+            type: "metric_line", title: "메모리 사용률 추이", unit: "%", range: "6h",
+            promql: "libvirt_domain_memory_stats_used_percent * on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info{instance_name=\"web-server-01\"}",
+            empty: false,
+            series: [
+              { name: "web-server-01", projectName: "service-prod",
+                points: Array.from({ length: 25 }, (_, i) => ({ ts: 1753322400 + i * 900, value: 62 + 8 * Math.sin(i / 4) })) },
+            ],
+          }],
+          followups: [],
+        },
+        {
           label: "threshold_banner — 임계 초과 배너",
           answer: "CPU 임계(85%)를 초과한 노드가 2대 있습니다.",
           widgets: [{ type: "threshold_banner", level: "CRIT", title: "임계 초과 노드 2대", detail: "CPU 85%↑ : web-prod-07, api-prod-02", count: 2 }],

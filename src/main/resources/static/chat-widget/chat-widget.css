@@ -17,6 +17,12 @@
   /* --- 중립 크기(accent) — severity 없는 수치·안내 메시지. 라이트/다크 다른 값(dataviz sequential blue) --- */
   --accent-blue: #3987e5;
   --accent-blue-soft: color-mix(in srgb, var(--accent-blue) 16%, transparent);
+  /* --- 시리즈(categorical) — dataviz 기본 팔레트 슬롯 1~5, 다크 스텝. 고정 순서, 순환 금지 --- */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
   /* --- 잉크/서페이스 (다크 기본) --- */
   --ink: #ffffff;
   --ink2: #c3c2b7;
@@ -43,6 +49,12 @@
 :root[data-theme="light"] {
   color-scheme: light;
   --accent-blue: #2a78d6;
+  /* 시리즈 팔레트 라이트 스텝 — 같은 8색 체계에서 라이트 표면용으로 검증된 값 */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
   --ink: #0b0b0b;
   --ink2: #52514e;
   --panel: #ffffff;
@@ -609,6 +621,30 @@ textarea:focus-visible {
 .lg-dot.seg-muted { background: var(--line); }
 .lg-name { font-weight: 600; color: var(--ink2); }
 .lg-val { font-weight: 800; color: var(--ink); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* line chart (metric_line) */
+.lc-plot { display: block; width: 100%; height: auto; margin-top: 10px; }
+.lc-grid { stroke: var(--line); stroke-width: 1; }
+.lc-ln { stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.lc-ln.ln-1 { stroke: var(--chart-1); }
+.lc-ln.ln-2 { stroke: var(--chart-2); }
+.lc-ln.ln-3 { stroke: var(--chart-3); }
+.lc-ln.ln-4 { stroke: var(--chart-4); }
+.lc-ln.ln-5 { stroke: var(--chart-5); }
+/* 끝점 마커 — 표면색 링 2px로 교차·겹침에서도 읽힌다 */
+.lc-dot { stroke: var(--panel); stroke-width: 2; }
+.lc-dot.ln-1 { fill: var(--chart-1); }
+.lc-dot.ln-2 { fill: var(--chart-2); }
+.lc-dot.ln-3 { fill: var(--chart-3); }
+.lc-dot.ln-4 { fill: var(--chart-4); }
+.lc-dot.ln-5 { fill: var(--chart-5); }
+.lc-y { fill: var(--muted); font-size: 9px; }
+.lc-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.lg-dot.ln-1 { background: var(--chart-1); }
+.lg-dot.ln-2 { background: var(--chart-2); }
+.lg-dot.ln-3 { background: var(--chart-3); }
+.lg-dot.ln-4 { background: var(--chart-4); }
+.lg-dot.ln-5 { background: var(--chart-5); }
 
 /* message banners */
 .msg { display: flex; gap: 13px; align-items: flex-start; border-radius: 16px; padding: 16px 17px; margin-top: 8px; }

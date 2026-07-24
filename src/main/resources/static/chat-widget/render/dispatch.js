@@ -6,6 +6,7 @@ import { buildQuotaGauge } from "./widgets/quota-gauge.js";
 import { buildProjectUsageBar } from "./widgets/project-usage-bar.js";
 import { buildStatusDonut } from "./widgets/status-donut.js";
 import { buildThresholdBanner } from "./widgets/threshold-banner.js";
+import { buildLineChart } from "./widgets/line-chart.js";
 
 const BUILDERS = {
   metric_rank: buildMetricRank,
@@ -14,6 +15,7 @@ const BUILDERS = {
   project_usage_bar: buildProjectUsageBar,
   status_donut: buildStatusDonut,
   threshold_banner: buildThresholdBanner,
+  metric_line: buildLineChart,
 };
 
 function emptyHint(w) {

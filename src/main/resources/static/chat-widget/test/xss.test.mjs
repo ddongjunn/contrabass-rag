@@ -37,6 +37,19 @@ test("evil string in status_donut segment status lands only in text", () => {
   assert.ok(out.attrVals.every((v) => !v.includes("<img") && !v.includes("<script")));
 });
 
+test("evil string in metric_line lands only in text, never in attrs", () => {
+  const node = buildWidget({
+    type: "metric_line", title: EVIL, unit: "%", range: "1h", promql: EVIL, empty: false,
+    series: [
+      { name: EVIL, projectName: EVIL, points: [{ ts: 1000, value: 10 }, { ts: 1060, value: 20 }] },
+      { name: "web-02", projectName: null, points: [{ ts: 1000, value: 5 }, { ts: 1060, value: 15 }] },
+    ],
+  });
+  const out = walk(node, { texts: [], attrVals: [] });
+  assert.ok(out.texts.some((t) => t.includes(EVIL)), "원문이 text에 보존돼야 함");
+  assert.ok(out.attrVals.every((v) => !v.includes("<img") && !v.includes("<script")), "attrs에 마크업이 새면 안 됨");
+});
+
 test("no innerHTML anywhere in render/ source", () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const renderDir = join(here, "..", "render");

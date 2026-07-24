@@ -19,7 +19,8 @@ export type WidgetType =
   | "threshold_banner"
   | "quota_gauge"
   | "status_donut"
-  | "project_usage_bar";
+  | "project_usage_bar"
+  | "metric_line";
 // Phase 2: "resource_dashboard"
 
 /** POST /api/chat 응답 전체. */
@@ -36,7 +37,8 @@ export type Widget =
   | ThresholdBannerWidget
   | QuotaGaugeWidget
   | StatusDonutWidget
-  | ProjectUsageBarWidget;
+  | ProjectUsageBarWidget
+  | MetricLineWidget;
 
 /** TopN 랭킹 표(막대). Prometheus topk 결과. */
 export interface MetricRankWidget {
@@ -55,6 +57,22 @@ export interface MetricRankRow {
   display: string;           // 포맷 완료 문자열 "91.2%", "410 MB/s"
   severity: Severity | null; // %지표만; 아니면 null(색상=액센트)
   spark?: number[];          // 1b: range 시계열(옵션). 없으면 스파크라인 미표시
+}
+
+/** 시계열 라인그래프. Prometheus query_range 결과(TREND). */
+export interface MetricLineWidget {
+  type: "metric_line";
+  title: string;             // "CPU 사용률 추이"
+  unit: string;              // "%", "B/s", "req/s"
+  range: string;             // "1h" — 조회 구간
+  promql: string;            // 근거 표기(환각 방지 취지)
+  empty: boolean;            // true면 결과 0건 → 빈 상태 카드
+  series: MetricLineSeries[]; // 최대 max-series(yml, 기본 5). 슬롯 색은 순서 고정
+}
+export interface MetricLineSeries {
+  name: string;              // instance_name ?? domain
+  projectName: string | null;
+  points: { ts: number; value: number }[]; // ts = epoch seconds
 }
 
 /** 개수 카드. cb_common COUNT. */

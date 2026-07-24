@@ -13,6 +13,14 @@ test("buildWidget routes known types", () => {
   assert.equal(find(node, "hero").text, "342");
 });
 
+test("buildWidget routes metric_line to line chart", () => {
+  const node = buildWidget({
+    type: "metric_line", title: "CPU 사용률 추이", unit: "%", range: "1h", promql: "expr", empty: false,
+    series: [{ name: "web-01", projectName: null, points: [{ ts: 1, value: 1 }, { ts: 2, value: 2 }] }],
+  });
+  assert.notEqual(find(node, "lc-plot"), null);
+});
+
 test("buildWidget returns null for unknown type", () => {
   assert.equal(buildWidget({ type: "resource_dashboard", foo: 1 }), null);
 });
