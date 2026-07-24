@@ -37,6 +37,10 @@ object RoutingPrompts {
         => {"route":"RESOURCE","confidence":0.9,"reason":"리소스 개수 조회 — 종류가 덜 적혀도 대상이 볼륨이면 RESOURCE"}
 
         [대화] (없음)
+        [질문] 지난 1시간 CPU 사용률 추이 보여줘
+        => {"route":"RESOURCE","confidence":0.95,"reason":"실시간 지표의 시계열 추이 조회"}
+
+        [대화] (없음)
         [질문] ACTIVE가 아닌 인스턴스 목록 보여줘
         => {"route":"RESOURCE","confidence":0.93,"reason":"상태 조건 리소스 목록 조회"}
 

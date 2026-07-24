@@ -6,6 +6,8 @@ import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.resource.application.PrometheusClient
 import com.okestro.ragbot.resource.domain.LabeledSample
 import com.okestro.ragbot.resource.domain.MetricSample
+import com.okestro.ragbot.resource.domain.RangeSeries
+import com.okestro.ragbot.resource.domain.TimePoint
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.slf4j.LoggerFactory
@@ -14,6 +16,8 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import java.net.http.HttpClient
 import java.security.SecureRandom
+import java.time.Duration
+import java.time.Instant
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLParameters
@@ -49,6 +53,37 @@ class HttpPrometheusClient(
         val samples = fetch(promql).mapNotNull { it.toLabeled() }
         log.info("prometheus-labeled-result count={}", samples.size)
         return samples
+    }
+
+    @Retry(name = "prometheus")
+    @CircuitBreaker(name = "prometheus")
+    override fun queryRange(promql: String, start: Instant, end: Instant, step: Duration): List<RangeSeries> {
+        log.info("prometheus-query-range promql=\"{}\" start={} end={} step={}s", promql, start, end, step.seconds)
+        val began = System.nanoTime()
+
+        val body = restClient.get()
+            .uri {
+                it.path("/api/v1/query_range")
+                    .queryParam("query", "{q}")
+                    .queryParam("start", start.epochSecond)
+                    .queryParam("end", end.epochSecond)
+                    .queryParam("step", step.seconds)
+                    .build(promql)
+            }
+            .retrieve()
+            .body(String::class.java)
+            ?: return emptyList()
+
+        val latencyMs = (System.nanoTime() - began) / 1_000_000
+        val response = objectMapper.readValue(body, PrometheusResponse::class.java)
+        if (response.status != "success") {
+            log.warn("prometheus-error status={} latencyMs={}", response.status, latencyMs)
+            return emptyList()
+        }
+
+        val series = response.data.result.map { it.toRangeSeries() }
+        log.info("prometheus-range-result latencyMs={} series={}", latencyMs, series.size)
+        return series
     }
 
     /** instant 조회 + 응답 봉투 검사까지 공통. 시계열을 라벨째 그대로 돌려준다. */
@@ -104,7 +139,18 @@ class HttpPrometheusClient(
         data class Result(
             val metric: Map<String, String> = emptyMap(),
             val value: List<Any> = emptyList(),
+            val values: List<List<Any>> = emptyList(),  // query_range 응답: [[ts, "v"], ...]
         ) {
+            fun toRangeSeries(): RangeSeries =
+                RangeSeries(
+                    labels = metric,
+                    points = values.mapNotNull { p ->
+                        val ts = p.getOrNull(0)?.toString()?.toDoubleOrNull()?.toLong() ?: return@mapNotNull null
+                        val v = p.getOrNull(1)?.toString()?.toDoubleOrNull() ?: return@mapNotNull null
+                        TimePoint(ts, v)
+                    },
+                )
+
             fun toSample(unit: String): MetricSample? {
                 val instanceName = metric["instance_name"] ?: metric["domain"] ?: return null
                 val rawValue = value.getOrNull(1)?.toString()?.toDoubleOrNull() ?: return null

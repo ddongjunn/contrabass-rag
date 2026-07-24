@@ -6,6 +6,9 @@ import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.QuotaInput
 import com.okestro.ragbot.resource.domain.ResourceExtraction
+import com.okestro.ragbot.resource.domain.TrendQuery
+import java.time.Duration
+import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Service
@@ -34,6 +37,7 @@ class DefaultResourceService(
                 }
             }
             is ResourceExtraction.ProjectUsageResolved -> projectUsageBar()
+            is ResourceExtraction.TrendResolved -> metricLine(extraction.query)
             is ResourceExtraction.Resolved -> {
                 val query = extraction.query
                 val entry = catalog.lookup(query.metric)
@@ -66,6 +70,26 @@ class DefaultResourceService(
                 )
             }
         }
+    }
+
+    /**
+     * TREND 트랙 — query_range 시계열 → metric_line. 구간·스텝·라인 상한은 전부 yml(불변식 7).
+     * 표현식엔 topk가 없다(시점별 순위 변동으로 시리즈에 구멍) — 상한은 WidgetBuilder가 자른다.
+     */
+    private fun metricLine(query: TrendQuery): ResourceService.Result {
+        val entry = catalog.lookup(query.metric)
+        val promql = PromQlBuilder.buildTrend(query, entry)
+        val trend = properties.resource.trend
+
+        val range = query.rangeDuration()
+        val end = Instant.now()
+        val start = end.minus(range)
+        val step = Duration.ofSeconds((range.seconds / trend.points).coerceAtLeast(15))
+        log.info("resource-trend metric={} range={} step={}s promql=\"{}\"", query.metric, query.range, step.seconds, promql)
+
+        val series = prometheus.queryRange(promql, start, end, step)
+        val widget = WidgetBuilder.metricLine(query, series, promql, entry.unit, trend.maxSeries)
+        return ResourceService.Result(TrendAnswerTemplate.render(widget), widgets = listOf(widget))
     }
 
     // ── STATUS / THRESHOLD 트랙 ────────────────────────────────────────────────

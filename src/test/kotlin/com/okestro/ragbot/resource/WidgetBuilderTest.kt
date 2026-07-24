@@ -4,6 +4,9 @@ import com.okestro.ragbot.resource.application.WidgetBuilder
 import com.okestro.ragbot.resource.domain.LabeledSample
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.MetricSample
+import com.okestro.ragbot.resource.domain.RangeSeries
+import com.okestro.ragbot.resource.domain.TimePoint
+import com.okestro.ragbot.resource.domain.TrendQuery
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.resource.domain.Severity
 import kotlin.test.Test
@@ -161,5 +164,57 @@ class WidgetBuilderTest {
     @Test
     fun `offenders 비면 detail null - 프론트가 있을 때만 그린다`() {
         assertNull(WidgetBuilder.thresholdBanner(2, 85).detail)
+    }
+
+    // ── metric_line (TREND) ─────────────────────────────────────────────────
+
+    private fun rangeSeries(name: String, vararg values: Double) = RangeSeries(
+        labels = mapOf("instance_name" to name, "project_name" to "prod"),
+        points = values.mapIndexed { i, v -> TimePoint(1_700_000_000L + i * 60, v) },
+    )
+
+    @Test
+    fun `metricLine - 시리즈 이름은 instance_name, 포인트 보존`() {
+        val w = WidgetBuilder.metricLine(
+            TrendQuery(MetricPattern.INSTANCE_CPU), listOf(rangeSeries("web-01", 10.0, 20.0)),
+            promql = "expr", unit = "%", maxSeries = 5,
+        )
+        assertEquals("metric_line", w.type)
+        assertEquals("CPU 사용률 추이", w.title)
+        assertEquals("web-01", w.series.single().name)
+        assertEquals("prod", w.series.single().projectName)
+        assertEquals(listOf(10.0, 20.0), w.series.single().points.map { it.value })
+        assertTrue(!w.empty)
+    }
+
+    @Test
+    fun `metricLine - maxSeries 초과 시 마지막 값 큰 순으로 자른다`() {
+        val w = WidgetBuilder.metricLine(
+            TrendQuery(MetricPattern.INSTANCE_CPU),
+            listOf(rangeSeries("low", 1.0, 2.0), rangeSeries("high", 1.0, 90.0), rangeSeries("mid", 1.0, 50.0)),
+            promql = "expr", unit = "%", maxSeries = 2,
+        )
+        assertEquals(listOf("high", "mid"), w.series.map { it.name })
+    }
+
+    @Test
+    fun `metricLine - instance_name 없으면 domain으로 폴백, 둘 다 없으면 버린다`() {
+        val w = WidgetBuilder.metricLine(
+            TrendQuery(MetricPattern.INSTANCE_CPU),
+            listOf(
+                RangeSeries(mapOf("domain" to "instance-0007"), listOf(TimePoint(1L, 1.0))),
+                RangeSeries(mapOf("other" to "x"), listOf(TimePoint(1L, 2.0))),
+            ),
+            promql = "expr", unit = "%", maxSeries = 5,
+        )
+        assertEquals(listOf("instance-0007"), w.series.map { it.name })
+    }
+
+    @Test
+    fun `metricLine - 시리즈 0건이면 empty`() {
+        val w = WidgetBuilder.metricLine(
+            TrendQuery(MetricPattern.INSTANCE_CPU), emptyList(), promql = "expr", unit = "%", maxSeries = 5,
+        )
+        assertTrue(w.empty)
     }
 }

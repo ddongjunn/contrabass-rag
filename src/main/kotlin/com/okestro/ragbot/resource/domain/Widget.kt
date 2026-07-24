@@ -22,6 +22,7 @@ enum class Severity { GOOD, WARN, CRIT }
     JsonSubTypes.Type(value = StatusDonutWidget::class, name = "status_donut"),
     JsonSubTypes.Type(value = QuotaGaugeWidget::class, name = "quota_gauge"),
     JsonSubTypes.Type(value = ThresholdBannerWidget::class, name = "threshold_banner"),
+    JsonSubTypes.Type(value = MetricLineWidget::class, name = "metric_line"),
     // Phase 2: JsonSubTypes.Type(ResourceDashboardWidget::class, name = "resource_dashboard")
 )
 sealed interface Widget { val type: String }
@@ -95,6 +96,22 @@ data class QuotaItem(
     val ratio: Double?,     // 무제한 → null
     val display: String,
     val severity: Severity?,
+)
+
+/** Prometheus query_range 시계열 → 라인그래프. TrendQuery + List<RangeSeries> → 변환. */
+data class MetricLineWidget(
+    val title: String,          // "CPU 사용률 추이"
+    val unit: String,           // "%", "B/s", "req/s"
+    val range: String,          // "1h" — 조회 구간
+    val promql: String,         // 근거 표기(환각 방지)
+    val series: List<MetricLineSeries>,
+    val empty: Boolean = false,
+) : Widget { override val type = "metric_line" }
+
+data class MetricLineSeries(
+    val name: String,           // instance_name ?: domain
+    val projectName: String?,
+    val points: List<TimePoint>, // (ts, value) — RangeSeries와 동일 좌표 타입
 )
 
 /** 임계 초과 콜아웃 배너. */

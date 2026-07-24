@@ -9,6 +9,7 @@ import com.okestro.ragbot.resource.domain.InventoryQuery
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.domain.ResourceQuery
+import com.okestro.ragbot.resource.domain.TrendQuery
 import com.okestro.ragbot.routing.application.LlmClient
 import com.okestro.ragbot.routing.application.LlmRequest
 import org.slf4j.LoggerFactory
@@ -78,6 +79,13 @@ class LlmMetricQueryExtractor(
                 log.info("extraction-resolved target=QUOTA question=\"{}\" project={} confidence={}", question, result.project, confidence)
             is ResourceExtraction.ProjectUsageResolved ->
                 log.info("extraction-resolved target=PROJECT_USAGE question=\"{}\" confidence={}", question, confidence)
+            is ResourceExtraction.TrendResolved -> {
+                val q = result.query
+                log.info(
+                    "extraction-resolved target=TREND question=\"{}\" metric={} range={} project={} instanceName={} confidence={}",
+                    question, q.metric, q.range, q.project ?: "(전체)", q.instanceName ?: "(전체)", confidence,
+                )
+            }
             is ResourceExtraction.NeedsClarification ->
                 log.info("extraction-clarify question=\"{}\" confidence={} message=\"{}\"", question, confidence, result.message)
         }
@@ -96,6 +104,7 @@ class LlmMetricQueryExtractor(
             "THRESHOLD" -> ResourceExtraction.ThresholdResolved // 임계값은 application.yml에서
             "QUOTA" -> toQuota(raw)
             "PROJECT_USAGE" -> ResourceExtraction.ProjectUsageResolved  // 조건 없음 — 전체 tenant 비교
+            "TREND" -> toTrend(raw)
             else -> toMetric(raw)
         }
     }
@@ -111,6 +120,23 @@ class LlmMetricQueryExtractor(
                 metric = metric,
                 sort = runCatching { ResourceQuery.Sort.valueOf(raw.sort) }.getOrDefault(ResourceQuery.Sort.DESC),
                 topN = raw.topN.coerceIn(1, 20),
+                window = raw.window.ifBlank { cfg.defaultWindow },
+                project = raw.project?.takeIf { it.isNotBlank() },
+                instanceName = raw.instanceName?.takeIf { it.isNotBlank() },
+            )
+        )
+    }
+
+    private fun toTrend(raw: RawExtraction): ResourceExtraction {
+        val metric = runCatching { MetricPattern.valueOf(raw.metric) }.getOrElse {
+            return ResourceExtraction.NeedsClarification(
+                "지원하지 않는 지표입니다. 조회 가능한 지표: CPU 사용률, 메모리, 네트워크(RX/TX), 디스크(읽기/쓰기)"
+            )
+        }
+        return ResourceExtraction.TrendResolved(
+            TrendQuery(
+                metric = metric,
+                range = raw.range.ifBlank { cfg.trend.defaultRange },
                 window = raw.window.ifBlank { cfg.defaultWindow },
                 project = raw.project?.takeIf { it.isNotBlank() },
                 instanceName = raw.instanceName?.takeIf { it.isNotBlank() },
@@ -156,6 +182,9 @@ class LlmMetricQueryExtractor(
         val topN: Int = 5,
         val window: String = "5m",
         val instanceName: String? = null,
+        // TREND
+        val range: String = "",
+
         // INVENTORY
         val kind: String = "",
         val mode: String = "LIST",

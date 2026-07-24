@@ -1,5 +1,8 @@
 package com.okestro.ragbot.resource
 
+import java.time.Instant
+import java.time.Duration
+import com.okestro.ragbot.resource.domain.RangeSeries
 import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.chat.domain.ConversationMessage.Role
 import com.okestro.ragbot.common.config.AppProperties
@@ -43,6 +46,7 @@ class DefaultResourceServiceProjectUsageTest {
             lastPromql = promql
             return labeled
         }
+        override fun queryRange(promql: String, start: Instant, end: Instant, step: Duration): List<RangeSeries> = emptyList()
     }
 
     private fun t(tenant: String, pct: Double) = LabeledSample(mapOf("tenant" to tenant), pct)

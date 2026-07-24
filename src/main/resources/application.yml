@@ -85,6 +85,10 @@ app:
       crit-percent: 85
     widgets:
       project-usage-top-n: 10                   # 프로젝트별 바 표시 상한(테넌트가 많으면 채팅창이 덮인다)
+    trend:                                      # TREND(시계열 추이, query_range)
+      default-range: 1h                         # 질문에 구간이 없을 때
+      points: 60                                # 구간을 나눌 목표 포인트 수 → step = range/points (최소 15s)
+      max-series: 5                             # 라인 수 상한(초과분은 마지막 값 기준 상위만)
     prometheus:
       base-url: ${PROMETHEUS_URL:}             # env PROMETHEUS_URL (R3에서 필수)
       connect-timeout: 3s

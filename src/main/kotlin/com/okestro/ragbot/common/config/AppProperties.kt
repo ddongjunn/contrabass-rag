@@ -81,7 +81,15 @@ data class AppProperties(
         val inventory: Inventory = Inventory(),
         val severity: Severity = Severity(),
         val widgets: Widgets = Widgets(),
+        val trend: Trend = Trend(),
     ) {
+        /** TREND(query_range) 조회 설정. step = range/points (최소 15s). */
+        data class Trend(
+            val defaultRange: String = "1h",
+            val points: Int = 60,
+            val maxSeries: Int = 5,
+        )
+
         /** 위젯 severity 임계치(%). 하드코딩 금지 — WidgetBuilder가 주입받아 색상 인코딩(설계 §5.1). */
         data class Severity(
             val warnPercent: Int = 70,

@@ -1,5 +1,8 @@
 package com.okestro.ragbot.resource
 
+import java.time.Instant
+import java.time.Duration
+import com.okestro.ragbot.resource.domain.RangeSeries
 import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.chat.domain.ConversationMessage.Role
 import com.okestro.ragbot.common.config.AppProperties
@@ -32,6 +35,7 @@ class DefaultResourceServiceInventoryTest {
     private val emptyPrometheus = object : PrometheusClient {
         override fun query(promql: String, unit: String): List<MetricSample> = emptyList()
         override fun queryLabeled(promql: String): List<LabeledSample> = emptyList()
+        override fun queryRange(promql: String, start: Instant, end: Instant, step: Duration): List<RangeSeries> = emptyList()
     }
 
     private fun service(extraction: ResourceExtraction, repo: InventoryRepository?): DefaultResourceService {

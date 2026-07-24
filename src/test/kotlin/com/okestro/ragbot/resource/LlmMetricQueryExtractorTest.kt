@@ -200,6 +200,28 @@ class LlmMetricQueryExtractorTest {
     }
 
     @Test
+    fun `target TREND면 TrendResolved - metric·range·project가 실린다`() {
+        val result = extractorWith(
+            """{"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"3h","project":"prod","confidence":0.9}"""
+        ).extract(ask("prod 프로젝트 CPU 사용률 추이 보여줘"))
+
+        val resolved = assertIs<ResourceExtraction.TrendResolved>(result)
+        assertEquals(MetricPattern.INSTANCE_CPU, resolved.query.metric)
+        assertEquals("3h", resolved.query.range)
+        assertEquals("prod", resolved.query.project)
+    }
+
+    @Test
+    fun `TREND인데 range가 비면 기본 range로 대체된다`() {
+        val result = extractorWith(
+            """{"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":5,"window":"5m","range":"","project":null,"confidence":0.88}"""
+        ).extract(ask("메모리 추이 어때?"))
+
+        val resolved = assertIs<ResourceExtraction.TrendResolved>(result)
+        assertEquals("1h", resolved.query.range)
+    }
+
+    @Test
     fun `target PROJECT_USAGE면 ProjectUsageResolved`() {
         val result = extractorWith(
             """{"target":"PROJECT_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.92}"""

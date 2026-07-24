@@ -4,6 +4,9 @@ sealed class ResourceExtraction {
     /** METRIC(Prometheus) 트랙 결과. */
     data class Resolved(val query: ResourceQuery) : ResourceExtraction()
 
+    /** TREND(Prometheus query_range) 트랙 결과 — 시계열 추이(metric_line). */
+    data class TrendResolved(val query: TrendQuery) : ResourceExtraction()
+
     /** INVENTORY(cb_common DB) 트랙 결과. */
     data class InventoryResolved(val query: InventoryQuery) : ResourceExtraction()
 

@@ -5,6 +5,7 @@ import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.PromPattern
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.ResourceQuery
+import com.okestro.ragbot.resource.domain.TrendQuery
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -117,6 +118,41 @@ class PromQlBuilderTest {
 
         assertThat(result).contains("""project_name="prod"""")
         assertThat(result).contains("""instance_name="web-server-01"""")
+    }
+
+    @Test
+    fun `TREND CPU - topk 없이 ratio 표현식만 생성`() {
+        val query = TrendQuery(metric = MetricPattern.INSTANCE_CPU)
+
+        val result = PromQlBuilder.buildTrend(query, cpu)
+
+        assertThat(result).isEqualTo(
+            "(sum by(domain)(rate(libvirt_domain_info_cpu_time_seconds_total[5m])) " +
+                "/ on(domain) max by(domain)(libvirt_domain_info_virtual_cpus) * 100) " +
+                "* on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info"
+        )
+    }
+
+    @Test
+    fun `TREND project 필터 - info 셀렉터 추가되고 topk는 없다`() {
+        val query = TrendQuery(metric = MetricPattern.INSTANCE_CPU, project = "prod")
+
+        val result = PromQlBuilder.buildTrend(query, cpu)
+
+        assertThat(result).contains("""libvirt_domain_openstack_info{project_name="prod"}""")
+        assertThat(result).doesNotContain("topk(")
+    }
+
+    @Test
+    fun `TREND counter - rate 표현식 생성`() {
+        val query = TrendQuery(metric = MetricPattern.INSTANCE_NETWORK_RX)
+
+        val result = PromQlBuilder.buildTrend(query, networkRx)
+
+        assertThat(result).isEqualTo(
+            "sum by(domain)(rate(libvirt_domain_interface_stats_receive_bytes_total[5m])) " +
+                "* on(domain) group_left(instance_name, project_name) libvirt_domain_openstack_info"
+        )
     }
 
     @Test

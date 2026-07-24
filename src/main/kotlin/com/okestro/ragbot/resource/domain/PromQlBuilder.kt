@@ -8,19 +8,38 @@ object PromQlBuilder {
 
     fun build(query: ResourceQuery, entry: MetricCatalogEntry): String {
         val rankFn = if (query.sort == ResourceQuery.Sort.DESC) "topk" else "bottomk"
-        val filters = listOfNotNull(
-            query.project?.let { """project_name="$it"""" },
-            query.instanceName?.let { """instance_name="$it"""" },
-        )
-        val infoSelector = if (filters.isEmpty()) INFO_METRIC
-                           else "$INFO_METRIC{${filters.joinToString(",")}}"
-        val enrich = "* on(domain) group_left(instance_name, project_name) $infoSelector"
+        val enrich = enrich(query.project, query.instanceName)
 
         return when (entry.pattern) {
             PromPattern.RATIO_TOPK -> buildRatioTopk(query, entry, rankFn, enrich)
             PromPattern.GAUGE_TOPK -> buildGaugeTopk(query, entry, rankFn, enrich)
             PromPattern.COUNTER_RATE_TOPK -> buildCounterRateTopk(query, entry, rankFn, enrich)
         }
+    }
+
+    /**
+     * TREND(query_range)용 — topk 래핑 없이 표현식만. 순위는 시점마다 달라져 topk를 넣으면
+     * 시리즈 구성원이 스텝마다 바뀐다(구멍 난 라인). 시리즈 상한은 WidgetBuilder가 마지막 값 기준으로 자른다.
+     */
+    fun buildTrend(query: TrendQuery, entry: MetricCatalogEntry): String {
+        val enrich = enrich(query.project, query.instanceName)
+        return when (entry.pattern) {
+            PromPattern.RATIO_TOPK ->
+                "(sum by(domain)(rate(${entry.rawMetric}[${query.window}])) " +
+                    "/ on(domain) max by(domain)($VCPUS_METRIC) * 100) $enrich"
+            PromPattern.GAUGE_TOPK -> "${entry.rawMetric} $enrich"
+            PromPattern.COUNTER_RATE_TOPK -> "sum by(domain)(rate(${entry.rawMetric}[${query.window}])) $enrich"
+        }
+    }
+
+    private fun enrich(project: String?, instanceName: String?): String {
+        val filters = listOfNotNull(
+            project?.let { """project_name="$it"""" },
+            instanceName?.let { """instance_name="$it"""" },
+        )
+        val infoSelector = if (filters.isEmpty()) INFO_METRIC
+                           else "$INFO_METRIC{${filters.joinToString(",")}}"
+        return "* on(domain) group_left(instance_name, project_name) $infoSelector"
     }
 
     // rate ÷ vCPUs × 100 — CPU 사용률(%)

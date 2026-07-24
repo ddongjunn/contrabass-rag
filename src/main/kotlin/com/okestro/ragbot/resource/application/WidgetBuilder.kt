@@ -5,10 +5,14 @@ import com.okestro.ragbot.resource.domain.InventoryKind
 import com.okestro.ragbot.resource.domain.InventoryResult
 import com.okestro.ragbot.resource.domain.InventoryCountWidget
 import com.okestro.ragbot.resource.domain.LabeledSample
+import com.okestro.ragbot.resource.domain.MetricLineSeries
+import com.okestro.ragbot.resource.domain.MetricLineWidget
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.MetricRankRow
 import com.okestro.ragbot.resource.domain.MetricRankWidget
 import com.okestro.ragbot.resource.domain.MetricSample
+import com.okestro.ragbot.resource.domain.RangeSeries
+import com.okestro.ragbot.resource.domain.TrendQuery
 import com.okestro.ragbot.resource.domain.ProjectUsageBarWidget
 import com.okestro.ragbot.resource.domain.ProjectUsageRow
 import com.okestro.ragbot.resource.domain.QuotaGaugeWidget
@@ -79,6 +83,41 @@ object WidgetBuilder {
             promql = promql,
             rows = rows,
             empty = samples.isEmpty(),
+        )
+    }
+
+    /**
+     * query_range 시계열 → metric_line 위젯(REAL). 0건이면 empty=true.
+     *
+     * buildTrend는 topk를 못 쓴다(시점마다 순위가 바뀌어 시리즈에 구멍) — 상한은 여기서
+     * **마지막 값 기준 내림차순**으로 자른다. 이름 없는(instance_name·domain 둘 다 없는) 시리즈는 버린다.
+     */
+    fun metricLine(
+        query: TrendQuery,
+        series: List<RangeSeries>,
+        promql: String,
+        unit: String,
+        maxSeries: Int,
+    ): MetricLineWidget {
+        val label = METRIC_LABEL[query.metric] ?: query.metric.name
+        val lines = series
+            .mapNotNull { s ->
+                val name = s.labels["instance_name"] ?: s.labels["domain"] ?: return@mapNotNull null
+                MetricLineSeries(
+                    name = name,
+                    projectName = s.labels["project_name"],
+                    points = s.points,
+                )
+            }
+            .sortedByDescending { it.points.lastOrNull()?.value ?: Double.NEGATIVE_INFINITY }
+            .take(maxSeries)
+        return MetricLineWidget(
+            title = "$label 추이",
+            unit = unit,
+            range = query.range,
+            promql = promql,
+            series = lines,
+            empty = lines.isEmpty(),
         )
     }
 

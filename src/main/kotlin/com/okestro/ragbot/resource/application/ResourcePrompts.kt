@@ -18,6 +18,9 @@ object ResourcePrompts {
         - 규칙: "얼마나/사용률/높은·낮은 순"=METRIC, "무엇이 있나/몇 개/목록"=INVENTORY,
           "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD, "쿼터/할당량/한도"=QUOTA.
         - PROJECT_USAGE: **프로젝트별 비교**를 묻는다 ("프로젝트별 사용률", "어느 프로젝트가 제일 많이 쓰나").
+        - TREND: 지표의 **시간에 따른 변화·추이·그래프**를 묻는다 ("지난 1시간 CPU 추이", "메모리 사용률 변화 보여줘",
+          "네트워크 트래픽 그래프"). → range 필드에 조회 구간을 "30m"/"1h"/"6h"/"1d" 형식으로 넣어라(언급 없으면 "1h").
+        - TREND vs METRIC: "추이/변화/그래프/시간대별"처럼 **시간 축**이 있으면 TREND, 현재 순위·수치면 METRIC.
         - QUOTA vs METRIC: "쿼터/할당량/한도"는 QUOTA, 실제 사용 "지표/사용률"은 METRIC.
         - QUOTA vs PROJECT_USAGE: 특정 프로젝트 하나면 QUOTA, 프로젝트끼리 비교면 PROJECT_USAGE.
         - STATUS vs INVENTORY: 특정 상태 하나를 세면("ACTIVE 인스턴스 몇 개") INVENTORY,
@@ -32,6 +35,8 @@ object ResourcePrompts {
           · "가장 높은/낮은 VM/인스턴스" — 단수 표현, 개수 미언급 → topN=1
           · "높은 VM 3개", "상위 10개" 등 개수 명시 → 해당 숫자
           · "높은 VM", "많이 쓰는 인스턴스" 등 복수 표현, 개수 미언급 → 기본값 5
+
+        [TREND] 추출 필드: METRIC과 동일(metric·project·instanceName) + range(조회 구간, 기본 "1h").
 
         [INVENTORY] 추출 필드:
         - kind: 조회 대상 (INSTANCE|INSTANCE_SNAPSHOT|VOLUME|VOLUME_SNAPSHOT)
@@ -100,7 +105,13 @@ object ResourcePrompts {
         => {"target":"PROJECT_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.92}
 
         [질문] prod 할당량 남은 거 있어?
-        => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"prod","confidence":0.9}
+        => {"target":"QUOTA","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":"prod","confidence":0.9}
+
+        [질문] 지난 1시간 CPU 사용률 추이 보여줘
+        => {"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.94}
+
+        [질문] web-server-01 메모리 사용률 6시간 변화 그래프
+        => {"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_MEMORY","sort":"DESC","topN":5,"window":"5m","range":"6h","instanceName":"web-server-01","kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.93}
     """.trimIndent()
 
     fun schema(metricKeys: List<String>): String {
@@ -110,13 +121,14 @@ object ResourcePrompts {
             {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "QUOTA", "PROJECT_USAGE"] },
+                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "QUOTA", "PROJECT_USAGE", "TREND"] },
                 "clarificationNeeded": { "type": "boolean" },
                 "clarificationMessage": { "type": "string" },
                 "metric": { "type": "string", "enum": [$metricEnum] },
                 "sort": { "type": "string", "enum": ["DESC", "ASC"] },
                 "topN": { "type": "integer" },
                 "window": { "type": "string" },
+                "range": { "type": "string" },
                 "instanceName": { "type": ["string", "null"] },
                 "kind": { "type": "string", "enum": [$kindEnum] },
                 "mode": { "type": "string", "enum": ["LIST", "COUNT"] },
@@ -127,7 +139,7 @@ object ResourcePrompts {
                 "project": { "type": ["string", "null"] },
                 "confidence": { "type": "number" }
               },
-              "required": ["target", "clarificationNeeded", "clarificationMessage", "metric", "sort", "topN", "window", "instanceName", "kind", "mode", "status", "statusOp", "hypervisorHostName", "instanceCreateEnable", "project", "confidence"],
+              "required": ["target", "clarificationNeeded", "clarificationMessage", "metric", "sort", "topN", "window", "range", "instanceName", "kind", "mode", "status", "statusOp", "hypervisorHostName", "instanceCreateEnable", "project", "confidence"],
               "additionalProperties": false
             }
         """.trimIndent()
