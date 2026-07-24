@@ -2,6 +2,7 @@ import { mount } from "./render/dom.js";
 import { buildWidget } from "./render/dispatch.js";
 import { buildChrome } from "./render/chrome.js";
 import { resolveUserId, resolveProject } from "./render/context.js";
+import { buildHistory } from "./render/history.js";
 import { icon } from "./render/icons.js";
 import {
   getTheme, setTheme, applyTheme, loadPanelSize, savePanelSize, clampPanelSize,
@@ -131,6 +132,8 @@ import {
 
   async function sendQuestion(question) {
     const loadingId = createId("loading");
+    // 현재 질문을 appendMessage로 쌓기 전에 캡처 — history엔 직전 대화만 실린다
+    const history = buildHistory(state.messages);
     state.pending = true;
     updateFormState();
 
@@ -156,6 +159,7 @@ import {
           question,
           userId: resolveUserId(window, state.userId),
           project: resolveProject(window),
+          history,
         }),
       });
 

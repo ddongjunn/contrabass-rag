@@ -9,4 +9,8 @@ data class ChatRequest(
     val question: String,
     val userId: String? = null,
     val project: String? = null,
-)
+    /** 웹 위젯이 보내는 직전 대화(오래된 것부터). 없으면 빈 목록 — Slack 스레드 히스토리와 같은 seam. */
+    val history: List<HistoryMessage> = emptyList(),
+) {
+    data class HistoryMessage(val role: String = "user", val content: String = "")
+}
