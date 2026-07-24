@@ -62,13 +62,24 @@
           followups: ["스냅샷은 몇 개야?"],
         },
         {
-          label: "project_usage_bar — 프로젝트별 (무제한 포함)",
-          answer: "프로젝트별 vCPU 쿼터 사용률입니다.",
+          label: "usage_bar — 네트워크별 IP 사용률",
+          answer: "네트워크별 IP 사용률입니다 — 상위: 10.255.43.0/24 17.3%, 10.255.42.0/24 7.9%.",
           widgets: [{
-            type: "project_usage_bar", metric: "vCPU", unit: "%", rows: [
-              { projectName: "service-prod", value: 82.0, display: "82%", severity: "WARN" },
-              { projectName: "data-platform", value: 55.0, display: "55%", severity: "GOOD" },
-              { projectName: "AUTOTEST", value: null, display: "무제한", severity: null },
+            type: "usage_bar", title: "네트워크별 IP 사용률", unit: "%", empty: false, rows: [
+              { name: "10.255.43.0/24", value: 17.3, display: "17.3%", severity: "GOOD" },
+              { name: "10.255.42.0/24", value: 7.9, display: "7.9%", severity: "GOOD" },
+              { name: "auto-cluster-network", value: 3.2, display: "3.2%", severity: "GOOD" },
+            ],
+          }],
+          followups: [],
+        },
+        {
+          label: "usage_bar — 스토리지 용량 (절대량 display)",
+          answer: "스토리지 용량입니다 — 상위: Main_Ceph_ceph_01_hdd_dev 3.0%, Ceph 클러스터 2.8%.",
+          widgets: [{
+            type: "usage_bar", title: "스토리지 용량", unit: "%", empty: false, rows: [
+              { name: "Main_Ceph_ceph_01_hdd_dev", value: 3.0, display: "292 GB / 9.6 TB (3.0%)", severity: "GOOD" },
+              { name: "Ceph 클러스터", value: 2.8, display: "1.0 TB / 34.8 TB (2.8%)", severity: "GOOD" },
             ],
           }],
           followups: [],

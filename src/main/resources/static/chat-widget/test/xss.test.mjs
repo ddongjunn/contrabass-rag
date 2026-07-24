@@ -50,6 +50,16 @@ test("evil string in metric_line lands only in text, never in attrs", () => {
   assert.ok(out.attrVals.every((v) => !v.includes("<img") && !v.includes("<script")), "attrs에 마크업이 새면 안 됨");
 });
 
+test("evil string in usage_bar lands only in text", () => {
+  const node = buildWidget({
+    type: "usage_bar", title: EVIL, unit: "%", empty: false,
+    rows: [{ name: EVIL, value: 17.3, display: EVIL, severity: "GOOD" }],
+  });
+  const out = walk(node, { texts: [], attrVals: [] });
+  assert.ok(out.texts.some((t) => t.includes(EVIL)));
+  assert.ok(out.attrVals.every((v) => !v.includes("<img") && !v.includes("<script")));
+});
+
 test("no innerHTML anywhere in render/ source", () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const renderDir = join(here, "..", "render");

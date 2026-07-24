@@ -15,7 +15,11 @@ object ResourcePrompts {
         - THRESHOLD: **임계 초과 여부**를 묻는다 ("임계 넘은 노드", "위험한 인스턴스 있어?", "CPU 높아서 문제되는 거").
         - 규칙: "얼마나/사용률/높은·낮은 순"=METRIC, "무엇이 있나/몇 개/목록"=INVENTORY,
           "상태별 몇 대씩/분포"=STATUS, "임계·기준 초과/위험"=THRESHOLD.
-        - PROJECT_USAGE: **프로젝트별 비교**를 묻는다 ("프로젝트별 사용률", "어느 프로젝트가 제일 많이 쓰나").
+        - IP_USAGE: **네트워크 IP 사용률/잔여**를 묻는다 ("네트워크 IP 얼마나 남았어", "IP 사용률", "서브넷 IP 부족해?").
+        - CAPACITY: **스토리지 용량**을 묻는다 ("스토리지 용량 얼마나 남았어", "디스크 풀 여유", "Ceph 용량").
+        - AGENT: **OpenStack 서비스/에이전트 헬스**를 묻는다 ("죽은 에이전트 있어?", "nova 서비스 정상이야?", "에이전트 상태").
+        - AGENT vs STATUS: 인스턴스(VM) 상태 분포는 STATUS, 오픈스택 **서비스 데몬**(nova/neutron/cinder 에이전트)은 AGENT.
+        - CAPACITY vs METRIC: 인스턴스별 디스크 I/O 순위는 METRIC(INSTANCE_DISK_*), 스토리지 풀/클러스터 용량은 CAPACITY.
         - TREND: 지표의 **시간에 따른 변화·추이·그래프**를 묻는다 ("지난 1시간 CPU 추이", "메모리 사용률 변화 보여줘",
           "네트워크 트래픽 그래프"). → range 필드에 조회 구간을 "30m"/"1h"/"6h"/"1d" 형식으로 넣어라(언급 없으면 "1h").
         - TREND vs METRIC: "추이/변화/그래프/시간대별"처럼 **시간 축**이 있으면 TREND, 현재 순위·수치면 METRIC.
@@ -33,6 +37,8 @@ object ResourcePrompts {
           · "높은 VM", "많이 쓰는 인스턴스" 등 복수 표현, 개수 미언급 → 기본값 5
 
         [TREND] 추출 필드: METRIC과 동일(metric·project·instanceName) + range(조회 구간, 기본 "1h").
+        - 클러스터 단위 추이는 metric에 TOTAL_VMS(전체 VM 수 추이)·STORAGE_USED(스토리지 사용률 추이)를 쓴다.
+        - IP_USAGE·CAPACITY·AGENT는 **추출할 조건이 없다** — 나머지 필드는 기본값을 채워라.
 
         [INVENTORY] 추출 필드:
         - kind: 조회 대상 (INSTANCE|INSTANCE_SNAPSHOT|VOLUME|VOLUME_SNAPSHOT)
@@ -97,8 +103,20 @@ object ResourcePrompts {
         [질문] ACTIVE 인스턴스 몇 개야?
         => {"target":"INVENTORY","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"COUNT","status":"ACTIVE","statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.9}
 
-        [질문] 프로젝트별 사용률 보여줘
-        => {"target":"PROJECT_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.92}
+        [질문] 네트워크 IP 얼마나 남았어?
+        => {"target":"IP_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.93}
+
+        [질문] 스토리지 용량 얼마나 남았어?
+        => {"target":"CAPACITY","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.93}
+
+        [질문] 죽은 에이전트 있어?
+        => {"target":"AGENT","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.93}
+
+        [질문] VM 수 추이 보여줘
+        => {"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"TOTAL_VMS","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.92}
+
+        [질문] 스토리지 사용량 추이 어때?
+        => {"target":"TREND","clarificationNeeded":false,"clarificationMessage":"","metric":"STORAGE_USED","sort":"DESC","topN":5,"window":"5m","range":"1h","instanceName":null,"kind":"INSTANCE","mode":"LIST","status":null,"statusOp":"EQ","hypervisorHostName":null,"instanceCreateEnable":null,"project":null,"confidence":0.92}
 
         [대화] user: CPU 사용률 TopN 보여줘 → assistant: CPU 사용률이 높은 인스턴스입니다 — web-01 외 4대
         [질문] admin 프로젝트만 보여줘
@@ -126,7 +144,7 @@ object ResourcePrompts {
             {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "PROJECT_USAGE", "TREND"] },
+                "target": { "type": "string", "enum": ["METRIC", "INVENTORY", "STATUS", "THRESHOLD", "TREND", "IP_USAGE", "CAPACITY", "AGENT"] },
                 "clarificationNeeded": { "type": "boolean" },
                 "clarificationMessage": { "type": "string" },
                 "metric": { "type": "string", "enum": [$metricEnum] },

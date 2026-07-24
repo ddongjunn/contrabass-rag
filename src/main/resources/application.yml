@@ -85,7 +85,7 @@ app:
       warn-percent: 70
       crit-percent: 85
     widgets:
-      project-usage-top-n: 10                   # 프로젝트별 바 표시 상한(테넌트가 많으면 채팅창이 덮인다)
+      usage-top-n: 10                           # usage_bar 표시 상한(항목이 많으면 채팅창이 덮인다)
     trend:                                      # TREND(시계열 추이, query_range)
       default-range: 1h                         # 질문에 구간이 없을 때
       points: 60                                # 구간을 나눌 목표 포인트 수 → step = range/points (최소 15s)
@@ -120,6 +120,14 @@ app:
         pattern: COUNTER_RATE_TOPK
         raw-metric: libvirt_domain_block_stats_write_requests_total
         unit: "req/s"
+      TOTAL_VMS:                                # 클러스터 시계열(TREND 전용) — 실측 2026-07-24
+        pattern: GAUGE_RAW
+        raw-metric: openstack_nova_total_vms
+        unit: "대"
+      STORAGE_USED:                             # GAUGE_RAW는 raw-metric에 표현식 허용(조인·rate 없음)
+        pattern: GAUGE_RAW
+        raw-metric: "(ceph_cluster_total_used_bytes / ceph_cluster_total_bytes) * 100"
+        unit: "%"
     inventory:                                 # INVENTORY(cb_common, MySQL) 트랙 — 미설정 시 빈 미생성
       enabled: ${RESOURCE_INVENTORY_ENABLED:false}
       db:                                      # cb_common (MySQL)

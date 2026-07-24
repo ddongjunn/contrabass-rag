@@ -7,6 +7,7 @@ import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.RangeSeries
 import com.okestro.ragbot.resource.domain.TimePoint
 import com.okestro.ragbot.resource.domain.TrendQuery
+import com.okestro.ragbot.resource.domain.UsageInput
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.resource.domain.Severity
 import kotlin.test.Test
@@ -180,16 +181,18 @@ class WidgetBuilderTest {
     }
 
     @Test
-    fun `metricLine - instance_name 없으면 domain으로 폴백, 둘 다 없으면 버린다`() {
+    fun `metricLine - 이름 폴백 instance_name-domain-name-nodename-전체 순`() {
         val w = WidgetBuilder.metricLine(
             TrendQuery(MetricPattern.INSTANCE_CPU),
             listOf(
-                RangeSeries(mapOf("domain" to "instance-0007"), listOf(TimePoint(1L, 1.0))),
-                RangeSeries(mapOf("other" to "x"), listOf(TimePoint(1L, 2.0))),
+                RangeSeries(mapOf("domain" to "instance-0007"), listOf(TimePoint(1L, 4.0))),
+                RangeSeries(mapOf("nodename" to "rack4-5-con1"), listOf(TimePoint(1L, 3.0))),
+                RangeSeries(emptyMap(), listOf(TimePoint(1L, 2.0))),
             ),
             promql = "expr", unit = "%", maxSeries = 5,
         )
-        assertEquals(listOf("instance-0007"), w.series.map { it.name })
+        // GAUGE_RAW(클러스터) 시계열은 인스턴스 라벨이 없다 — 버리지 않고 폴백 이름을 쓴다
+        assertEquals(listOf("instance-0007", "rack4-5-con1", "전체"), w.series.map { it.name })
     }
 
     @Test
@@ -198,5 +201,59 @@ class WidgetBuilderTest {
             TrendQuery(MetricPattern.INSTANCE_CPU), emptyList(), promql = "expr", unit = "%", maxSeries = 5,
         )
         assertTrue(w.empty)
+    }
+
+    // ── usage_bar (IP_USAGE·CAPACITY) ───────────────────────────────────────
+
+    @Test
+    fun `usageBar - 값 내림차순, topN 상한, display 기본 포맷`() {
+        val w = WidgetBuilder.usageBar(
+            title = "네트워크별 IP 사용률", unit = "%",
+            inputs = listOf(
+                UsageInput("net-a", 3.2), UsageInput("net-b", 17.3), UsageInput("net-c", 7.9),
+            ),
+            warnPercent = 70, critPercent = 85, topN = 2,
+        )
+        assertEquals("usage_bar", w.type)
+        assertEquals(listOf("net-b", "net-c"), w.rows.map { it.name })
+        assertEquals("17.3%", w.rows.first().display)
+        assertEquals(Severity.GOOD, w.rows.first().severity)
+        assertTrue(!w.empty)
+    }
+
+    @Test
+    fun `usageBar - display를 지정하면 그대로 쓴다(용량 절대값 표기)`() {
+        val w = WidgetBuilder.usageBar(
+            "스토리지 용량", "%", listOf(UsageInput("Ceph 클러스터", 2.8, "1.0 TB / 34.8 TB (2.8%)")),
+            warnPercent = 70, critPercent = 85, topN = 10,
+        )
+        assertEquals("1.0 TB / 34.8 TB (2.8%)", w.rows.single().display)
+    }
+
+    @Test
+    fun `usageBar - NaN-Inf는 버리고, 0건이면 empty`() {
+        val w = WidgetBuilder.usageBar(
+            "t", "%", listOf(UsageInput("bad", Double.NaN)), warnPercent = 70, critPercent = 85, topN = 5,
+        )
+        assertTrue(w.empty)
+    }
+
+    // ── agent 배너 (AGENT) ──────────────────────────────────────────────────
+
+    @Test
+    fun `agentDownBanner - 다운 있으면 CRIT와 목록`() {
+        val w = WidgetBuilder.agentDownBanner(listOf("nova-compute@rack4-5", "neutron-l3-agent@rack4-6"))
+        assertEquals(Severity.CRIT, w.level)
+        assertEquals(2, w.count)
+        assertTrue(w.title.contains("2"), w.title)
+        assertTrue(w.detail!!.contains("nova-compute@rack4-5"), w.detail!!)
+    }
+
+    @Test
+    fun `agentDownBanner - 다운 0이면 GOOD 배너`() {
+        val w = WidgetBuilder.agentDownBanner(emptyList())
+        assertEquals(Severity.GOOD, w.level)
+        assertEquals(0, w.count)
+        assertNull(w.detail)
     }
 }

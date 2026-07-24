@@ -121,6 +121,16 @@ class PromQlBuilderTest {
     }
 
     @Test
+    fun `GAUGE_RAW - 조인 없이 raw 표현식 그대로 (TREND)`() {
+        val entry = MetricCatalogEntry(PromPattern.GAUGE_RAW, "openstack_nova_total_vms", "대")
+
+        assertThat(PromQlBuilder.buildTrend(TrendQuery(metric = MetricPattern.TOTAL_VMS), entry))
+            .isEqualTo("openstack_nova_total_vms")
+        assertThat(PromQlBuilder.build(ResourceQuery(metric = MetricPattern.TOTAL_VMS), entry))
+            .isEqualTo("topk(5, openstack_nova_total_vms)")
+    }
+
+    @Test
     fun `TREND CPU - topk 없이 ratio 표현식만 생성`() {
         val query = TrendQuery(metric = MetricPattern.INSTANCE_CPU)
 

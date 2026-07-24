@@ -18,7 +18,7 @@ enum class Severity { GOOD, WARN, CRIT }
 @JsonSubTypes(
     JsonSubTypes.Type(value = MetricRankWidget::class, name = "metric_rank"),
     JsonSubTypes.Type(value = InventoryCountWidget::class, name = "inventory_count"),
-    JsonSubTypes.Type(value = ProjectUsageBarWidget::class, name = "project_usage_bar"),
+    JsonSubTypes.Type(value = UsageBarWidget::class, name = "usage_bar"),
     JsonSubTypes.Type(value = StatusDonutWidget::class, name = "status_donut"),
     JsonSubTypes.Type(value = ThresholdBannerWidget::class, name = "threshold_banner"),
     JsonSubTypes.Type(value = MetricLineWidget::class, name = "metric_line"),
@@ -54,19 +54,19 @@ data class InventoryCountWidget(
 
 // ---- Phase 1b (신규 집계 필요, 설계 §5.4) ----
 
-/** PromQL by(project) 집계. */
-data class ProjectUsageBarWidget(
-    val metric: String,         // "CPU", "메모리" ...
-    val unit: String,
-    val rows: List<ProjectUsageRow>,
+/** 범용 사용률 바(IP_USAGE·CAPACITY). 이름 있는 항목들의 % 사용률 목록. */
+data class UsageBarWidget(
+    val title: String,          // "네트워크별 IP 사용률"
+    val unit: String,           // "%"
+    val rows: List<UsageRow>,
     val empty: Boolean = false, // 결과 0건 → 빈 상태 카드(없으면 제목만 있는 유령 카드가 뜬다)
-) : Widget { override val type = "project_usage_bar" }
+) : Widget { override val type = "usage_bar" }
 
-data class ProjectUsageRow(
-    val projectName: String,
-    val value: Double?,     // 무제한(쿼터 max=-1) → null. 프론트가 muted 100% 바로 그린다(계약 d.ts).
-    val display: String,    // "82.0%" 또는 "무제한"
-    val severity: Severity?, // 무제한이면 색을 못 매긴다 → null
+data class UsageRow(
+    val name: String,
+    val value: Double,      // % — 바 길이
+    val display: String,    // "17.3%" 또는 "1.0 TB / 34.8 TB (2.8%)"
+    val severity: Severity?,
 )
 
 /** Prometheus count by(status) 집계. */

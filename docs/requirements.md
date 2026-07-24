@@ -68,7 +68,9 @@ DOC 전용 파이프라인을 인프라 실시간 지표 조회로 확장한다.
 | RESOURCE R4 | 라우터·RESOURCE·Slack 스레드 히스토리를 DefaultChatService에 배선 | ✅ 완료 |
 | RESOURCE TREND | 시계열 질문("추이") → `query_range` → `metric_line` 라인그래프 위젯 | ✅ 완료 |
 | REST 히스토리 | 웹 위젯 → `ChatRequest.history` → 라우터·추출 맥락 상속(후속질문) | ✅ 완료 |
-| QUOTA | 실 Prometheus에 limits 메트릭 부재 → 제거 확정(정책: 실존 메트릭만 지원) | 제거됨 |
+| QUOTA·PROJECT_USAGE | 실 Prometheus에 limits 메트릭 부재 → 제거 확정(정책: 실존 메트릭만 지원) | 제거됨 |
+| 실존 메트릭 target 3종 | IP_USAGE(네트워크 IP)·CAPACITY(스토리지 용량)·AGENT(에이전트 헬스) — 전부 실측 검증 | ✅ 완료 |
+| TREND 클러스터 확장 | TOTAL_VMS(VM 수 추이)·STORAGE_USED(스토리지 사용률 추이) | ✅ 완료 |
 
 > 2차 상세 계획: [`phase2/plan.md`](phase2/plan.md)
 

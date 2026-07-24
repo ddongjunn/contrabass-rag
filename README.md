@@ -46,7 +46,7 @@ sequenceDiagram
     else RESOURCE — 인프라 실시간 조회
         R-->>B: RESOURCE
         B->>L: 조건추출 — LLM ② (strict json_schema, target 판별 포함)
-        L-->>B: target = METRIC | INVENTORY | STATUS | THRESHOLD | PROJECT_USAGE
+        L-->>B: target = METRIC | TREND | INVENTORY | STATUS | THRESHOLD | IP_USAGE | CAPACITY | AGENT
         B->>B: target별 PromQL/SQL 조립 (LLM 0회)
         B->>P: HTTP 조회
         P-->>B: 지표·집계 데이터
@@ -161,20 +161,22 @@ VM 배포 (앱 + pgvector 컨테이너):
 생성 LLM 호출 없이 **추출 1회**로 실시간 데이터를 반환합니다. 라우터는 `DOC/RESOURCE/CLARIFY`로
 동결돼 있고, RESOURCE 내부 분기는 추출 LLM의 `target` 판별자가 담당합니다(추가 호출 없음).
 
-**target 6종** (`ResourceExtraction`):
+**target 8종** (`ResourceExtraction`) — 전부 실존 메트릭 실측(2026-07-24) 기반:
 
 | target | 질문 예 | 결과 | 위젯 |
 |---|---|---|---|
 | `METRIC` | "CPU 높은 VM" | Prometheus TopN | `metric_rank` |
-| `TREND` | "지난 1시간 CPU 사용률 추이" | Prometheus `query_range` 시계열 | `metric_line` |
+| `TREND` | "지난 1시간 CPU 사용률 추이", "VM 수 추이", "스토리지 사용량 추이" | Prometheus `query_range` 시계열 | `metric_line` |
 | `INVENTORY` | "볼륨 몇 개?" | cb_common COUNT/LIST | `inventory_count` |
 | `STATUS` | "상태 분포", "죽어있는 거 몇 대" | `count by(status)(openstack_nova_server_status)` | `status_donut` |
 | `THRESHOLD` | "임계 넘은 노드 있어?" | CPU 사용률 > `crit-percent` | `threshold_banner` |
-| `PROJECT_USAGE` | "프로젝트별 사용률" | tenant별 쿼터 사용률 | `project_usage_bar` |
+| `IP_USAGE` | "네트워크 IP 얼마나 남았어?" | `openstack_neutron_network_ip_availabilities_*` (네트워크별) | `usage_bar` |
+| `CAPACITY` | "스토리지 용량 얼마나 남았어?" | Ceph 클러스터 + cinder 백엔드 풀 용량 | `usage_bar` |
+| `AGENT` | "죽은 에이전트 있어?" | `openstack_*_agent_state == 0` | `threshold_banner` |
 
-> QUOTA target은 실 Prometheus에 `openstack_*_limits_*` 메트릭이 없어 제거됐다(정책: 실존
-> 메트릭만 지원). ⚠️ `PROJECT_USAGE`도 같은 limits 메트릭에 의존한다 — 현 환경 실측(2026-07-24)
-> 기준 0건이라 빈 위젯이 나온다(유지·제거는 팀 결정 필요).
+> QUOTA·PROJECT_USAGE target은 실 Prometheus에 `openstack_*_limits_*` 메트릭이 없어 제거됐다
+> (정책: **exporter에 실존하는 메트릭만 지원**). 설계 근거·실측 기록:
+> [`docs/superpowers/specs/2026-07-24-real-metric-targets-design.md`](docs/superpowers/specs/2026-07-24-real-metric-targets-design.md)
 
 **TREND 설정** (`app.resource.trend.*`): `default-range`(기본 1h) · `points`(스텝 수, 기본 60) ·
 `max-series`(라인 상한, 기본 5 — 마지막 값 기준 상위만)
@@ -191,6 +193,8 @@ VM 배포 (앱 + pgvector 컨테이너):
 | `INSTANCE_MEMORY` | 메모리 사용률 TopN | % |
 | `INSTANCE_NET_TX` / `INSTANCE_NET_RX` | 네트워크 송/수신 TopN | B/s |
 | `INSTANCE_DISK_READ` / `INSTANCE_DISK_WRITE` | 디스크 읽기/쓰기 TopN | B/s |
+| `TOTAL_VMS` | 전체 VM 수 (TREND 전용) | 대 |
+| `STORAGE_USED` | Ceph 클러스터 사용률 (TREND 전용) | % |
 
 **추출 필드** (`ResourceQuery`): `metric` · `sort(DESC/ASC)` · `topN(1-20)` · `window` · `project` · `instanceName`
 

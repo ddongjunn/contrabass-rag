@@ -17,9 +17,8 @@ export type WidgetType =
   | "metric_rank"
   | "inventory_count"
   | "threshold_banner"
-  | "quota_gauge"
   | "status_donut"
-  | "project_usage_bar"
+  | "usage_bar"
   | "metric_line";
 // Phase 2: "resource_dashboard"
 
@@ -35,9 +34,8 @@ export type Widget =
   | MetricRankWidget
   | InventoryCountWidget
   | ThresholdBannerWidget
-  | QuotaGaugeWidget
   | StatusDonutWidget
-  | ProjectUsageBarWidget
+  | UsageBarWidget
   | MetricLineWidget;
 
 /** TopN 랭킹 표(막대). Prometheus topk 결과. */
@@ -92,21 +90,6 @@ export interface ThresholdBannerWidget {
   count: number;
 }
 
-/** 쿼터 게이지(복수). openstack-exporter 쿼터. */
-export interface QuotaGaugeWidget {
-  type: "quota_gauge";
-  items: QuotaItem[];
-  empty: boolean;            // true면 결과 0건 → 빈 상태 카드
-}
-export interface QuotaItem {
-  resource: string;          // "vCPU" | "메모리" | "디스크"
-  used: number;
-  quota: number | null;      // null = 무제한(-1)
-  ratio: number | null;      // 0~1, null = 무제한
-  display: string;           // "820 / 1000" | "8 / 무제한"
-  severity: Severity | null; // 무제한이면 null
-}
-
 /** 상태 분포 도넛. Prometheus count by(status). */
 export interface StatusDonutWidget {
   type: "status_donut";
@@ -121,17 +104,17 @@ export interface StatusSegment {
   level: DonutLevel;
 }
 
-/** 프로젝트별 쿼터 사용률 바. (used/max*100, 무제한(max=-1)은 value=null → muted 100% 바) */
-export interface ProjectUsageBarWidget {
-  type: "project_usage_bar";
-  metric: string;            // "vCPU" | "메모리" | "디스크"
+/** 범용 사용률 바(IP_USAGE·CAPACITY). 이름 있는 항목들의 % 사용률 목록. */
+export interface UsageBarWidget {
+  type: "usage_bar";
+  title: string;             // "네트워크별 IP 사용률" | "스토리지 용량"
   unit: string;              // "%"
-  rows: ProjectUsageRow[];   // 사용률 내림차순, 서버가 상한(app.resource.widgets.project-usage-top-n)까지 잘라 보냄
+  rows: UsageRow[];          // 값 내림차순, 서버가 상한(app.resource.widgets.usage-top-n)까지 잘라 보냄
   empty: boolean;            // true면 결과 0건 → 빈 상태 카드
 }
-export interface ProjectUsageRow {
-  projectName: string;       // tenant 이름(라벨에 이미 존재)
-  value: number | null;      // null = 무제한(쿼터 max=-1). 실측 43개 테넌트 중 16개
-  display: string;           // "82.0%" | "무제한"
-  severity: Severity | null; // 무제한이면 null(색을 못 매김)
+export interface UsageRow {
+  name: string;              // 네트워크 이름 | "Ceph 클러스터" | 백엔드 풀 이름
+  value: number;             // % — 바 길이
+  display: string;           // "17.3%" | "1.0 TB / 34.8 TB (2.8%)"
+  severity: Severity | null;
 }

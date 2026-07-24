@@ -75,8 +75,12 @@ class LlmMetricQueryExtractor(
                 log.info("extraction-resolved target=STATUS question=\"{}\" confidence={}", question, confidence)
             is ResourceExtraction.ThresholdResolved ->
                 log.info("extraction-resolved target=THRESHOLD question=\"{}\" confidence={}", question, confidence)
-            is ResourceExtraction.ProjectUsageResolved ->
-                log.info("extraction-resolved target=PROJECT_USAGE question=\"{}\" confidence={}", question, confidence)
+            is ResourceExtraction.IpUsageResolved ->
+                log.info("extraction-resolved target=IP_USAGE question=\"{}\" confidence={}", question, confidence)
+            is ResourceExtraction.CapacityResolved ->
+                log.info("extraction-resolved target=CAPACITY question=\"{}\" confidence={}", question, confidence)
+            is ResourceExtraction.AgentResolved ->
+                log.info("extraction-resolved target=AGENT question=\"{}\" confidence={}", question, confidence)
             is ResourceExtraction.TrendResolved -> {
                 val q = result.query
                 log.info(
@@ -100,7 +104,9 @@ class LlmMetricQueryExtractor(
             "INVENTORY" -> toInventory(raw)
             "STATUS" -> ResourceExtraction.StatusResolved       // 조건 없음 — 쿼리 고정
             "THRESHOLD" -> ResourceExtraction.ThresholdResolved // 임계값은 application.yml에서
-            "PROJECT_USAGE" -> ResourceExtraction.ProjectUsageResolved  // 조건 없음 — 전체 tenant 비교
+            "IP_USAGE" -> ResourceExtraction.IpUsageResolved   // 조건 없음 — 쿼리 고정
+            "CAPACITY" -> ResourceExtraction.CapacityResolved  // 조건 없음 — 쿼리 고정
+            "AGENT" -> ResourceExtraction.AgentResolved        // 조건 없음 — 쿼리 고정
             "TREND" -> toTrend(raw)
             else -> toMetric(raw)
         }

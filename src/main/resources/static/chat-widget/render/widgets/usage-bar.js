@@ -4,11 +4,10 @@ import { clampPct } from "../format.js";
 const SEV_CLASS = { GOOD: "sev-good", WARN: "sev-warn", CRIT: "sev-crit" };
 
 function usageRow(row) {
-  const unlimited = row.value == null;
-  const cls = unlimited ? "sev-muted" : (SEV_CLASS[row.severity] || "sev-accent");
-  const width = unlimited ? 100 : clampPct(row.value);
+  const cls = SEV_CLASS[row.severity] || "sev-accent";
+  const width = clampPct(row.value);
   return h("div", { className: "rk" }, [
-    h("div", { className: "rk-name" }, [h("span", { className: "rk-nm", text: row.projectName })]),
+    h("div", { className: "rk-name" }, [h("span", { className: "rk-nm", text: row.name })]),
     h("div", { className: "rk-track", attrs: { "aria-hidden": "true" } }, [
       h("i", { className: cls, attrs: { style: `width:${width.toFixed(0)}%` } }),
     ]),
@@ -16,9 +15,9 @@ function usageRow(row) {
   ]);
 }
 
-export function buildProjectUsageBar(w) {
+export function buildUsageBar(w) {
   return h("div", { className: "card widget" }, [
-    h("div", { className: "eyebrow" }, [h("span", { text: `프로젝트별 ${w.metric} 사용률` })]),
+    h("div", { className: "eyebrow" }, [h("span", { text: w.title })]),
     ...w.rows.map(usageRow),
   ]);
 }

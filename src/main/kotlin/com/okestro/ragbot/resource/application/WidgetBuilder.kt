@@ -13,8 +13,9 @@ import com.okestro.ragbot.resource.domain.MetricRankWidget
 import com.okestro.ragbot.resource.domain.MetricSample
 import com.okestro.ragbot.resource.domain.RangeSeries
 import com.okestro.ragbot.resource.domain.TrendQuery
-import com.okestro.ragbot.resource.domain.ProjectUsageBarWidget
-import com.okestro.ragbot.resource.domain.ProjectUsageRow
+import com.okestro.ragbot.resource.domain.UsageBarWidget
+import com.okestro.ragbot.resource.domain.UsageInput
+import com.okestro.ragbot.resource.domain.UsageRow
 import com.okestro.ragbot.resource.domain.ResourceQuery
 import com.okestro.ragbot.resource.domain.Severity
 import com.okestro.ragbot.resource.domain.StatusDonutWidget
@@ -37,6 +38,8 @@ object WidgetBuilder {
         MetricPattern.INSTANCE_NETWORK_TX to "네트워크 송신량",
         MetricPattern.INSTANCE_DISK_READ  to "디스크 읽기량",
         MetricPattern.INSTANCE_DISK_WRITE to "디스크 쓰기량",
+        MetricPattern.TOTAL_VMS           to "전체 VM 수",
+        MetricPattern.STORAGE_USED        to "스토리지 사용률",
     )
 
     private val INVENTORY_LABEL = mapOf(
@@ -98,8 +101,11 @@ object WidgetBuilder {
     ): MetricLineWidget {
         val label = METRIC_LABEL[query.metric] ?: query.metric.name
         val lines = series
-            .mapNotNull { s ->
-                val name = s.labels["instance_name"] ?: s.labels["domain"] ?: return@mapNotNull null
+            .map { s ->
+                // GAUGE_RAW(클러스터) 시계열은 인스턴스 라벨이 없다 — 버리지 않고 폴백 이름을 쓴다.
+                // enrich 조인 경로는 조인이 이름을 보장하므로 폴백이 발동하지 않는다.
+                val name = s.labels["instance_name"] ?: s.labels["domain"]
+                    ?: s.labels["name"] ?: s.labels["nodename"] ?: "전체"
                 MetricLineSeries(
                     name = name,
                     projectName = s.labels["project_name"],
@@ -166,19 +172,6 @@ object WidgetBuilder {
         )
     }
 
-    /**
-     * 쿼터 무제한 판별. `used/max`에서 max=-1이면 음수(used>0) 또는 **-0.0**(used=0)이 나온다.
-     *
-     * ⚠️ -0.0이 함정이다 — `v >= 0`을 통과해서 무제한이 "0% 사용"으로 둔갑한다. `1.0/v`가 부호비트를
-     * 보므로 -0.0(→ -Inf)까지 잡힌다. `==` 비교를 안 쓰는 이유: 타입이 박싱되면 equals 의미론이 되어
-     * -0.0 == 0.0이 false가 되고 버그가 조용히 되살아난다. (호출 전 isFinite로 NaN을 걸러둔다.)
-     */
-    private fun isUnlimited(ratio: Double): Boolean = 1.0 / ratio < 0
-
-    /**
-     * 도넛 세그먼트 색. **소문자**여야 한다 — 프론트 status-donut.js의 LEVEL_CLASS가 소문자 키만
-     * 가져서 Severity.name(대문자)을 넣으면 전부 seg-muted 회색으로 죽는다(계약: DonutLevel).
-     */
     private fun levelForStatus(status: String): String = when (status.uppercase()) {
         "ACTIVE" -> "good"
         "ERROR" -> "crit"
@@ -212,56 +205,50 @@ object WidgetBuilder {
     }
 
     /**
-     * tenant별 쿼터 사용률 → project_usage_bar 위젯(REAL).
+     * 이름별 사용률 → usage_bar 위젯(REAL). IP_USAGE·CAPACITY 공용.
      *
-     * ⚠️ 무제한(max=-1) 테넌트는 비율이 음수이거나 **-0.0**이다. ProjectUsageRow.value가 non-null이라
-     * 넣을 수 없고, -0.0을 통과시키면 무제한이 "0% 사용"으로 둔갑한다. 호출부가 PromQL에서 이미
-     * 거르지만(`max > 0`), 소스가 바뀌어도 안전하도록 여기서도 막는다.
-     *
-     * @param samples labels["tenant"] = 프로젝트 이름, value = 퍼센트.
+     * NaN/±Inf는 고장 값이라 버린다(정렬 시 1위로 튀어 상위 슬롯을 먹는다). 값 내림차순,
+     * 상한은 application.yml(불변식 7). display를 지정한 항목은 그대로 표시한다(용량 절대값 등).
      */
-    fun projectUsageBar(
-        samples: List<LabeledSample>,
-        metric: String,
+    fun usageBar(
+        title: String,
         unit: String,
+        inputs: List<UsageInput>,
         warnPercent: Int,
         critPercent: Int,
         topN: Int,
-    ): ProjectUsageBarWidget {
-        val rows = samples
-            .mapNotNull { s -> s.labels["tenant"]?.let { it to s.value } }
-            // NaN/±Inf는 무제한이 아니라 고장이다 — 표시할 의미가 없고, NaN은 정렬 시 1위로 튀어
-            // 상위 슬롯을 먹는다. 무제한(음수·-0.0)과 구분해서 여기서만 버린다.
-            .filter { (_, v) -> v.isFinite() }
-            // 정렬 = 볼 가치 순: ① 실제로 쓰는 중(사용률 내림차순) ② 무제한(한도 자체가 없다는 사실)
-            // ③ 한도는 있는데 0% (놀고 있음).
-            // ②를 ③보다 올리는 이유: 실측 43개 중 실사용이 2개뿐이라 무제한을 맨 뒤로 두면 상위 10칸을
-            // 0.0% 행이 다 먹어 무제한이 화면에 아예 안 나온다(실 화면에서 확인). 둘 다 조치할 게 없는
-            // 행이지만, "한도가 없다"는 설정 사실이 "안 쓰고 있다"보다 알 가치가 있다.
-            // 같은 값이면 이름순(Prometheus 결과 순서는 보장되지 않는다).
-            .sortedWith(
-                compareBy<Pair<String, Double>> { (_, v) ->
-                    when {
-                        isUnlimited(v) -> 1
-                        v > 0.0 -> 0
-                        else -> 2
-                    }
-                }
-                    .thenByDescending { (_, v) -> if (isUnlimited(v)) 0.0 else v }
-                    .thenBy { it.first },
-            )
-            // 실측 27개+ 테넌트를 다 그리면 채팅창이 덮인다(실 화면 확인). 상한은 application.yml(불변식 7).
-            // 잘린 개수는 평문이 주장하지 않는다 — 여기서 세면 전체가 아니라 자른 뒤 수라 틀린다.
+    ): UsageBarWidget {
+        val rows = inputs
+            .filter { it.value.isFinite() }
+            .sortedWith(compareByDescending<UsageInput> { it.value }.thenBy { it.name })
             .take(topN)
-            .map { (tenant, pct) ->
-                if (isUnlimited(pct)) {
-                    // 계약(d.ts): 무제한은 value=null·display="무제한"·severity=null → 프론트가 muted 100% 바.
-                    ProjectUsageRow(tenant, null, "무제한", null)
-                } else {
-                    ProjectUsageRow(tenant, pct, MetricValueFormatter.format(pct, unit), severityForPercent(pct, unit, warnPercent, critPercent))
-                }
+            .map {
+                UsageRow(
+                    name = it.name,
+                    value = it.value,
+                    display = it.display ?: MetricValueFormatter.format(it.value, unit),
+                    severity = severityForPercent(it.value, unit, warnPercent, critPercent),
+                )
             }
-        return ProjectUsageBarWidget(metric = metric, unit = unit, rows = rows, empty = rows.isEmpty())
+        return UsageBarWidget(title = title, unit = unit, rows = rows, empty = rows.isEmpty())
+    }
+
+    /**
+     * 다운 에이전트 목록 → threshold_banner 위젯(REAL, 타입 재사용 — 프론트 변경 0).
+     * 호출부는 `agent_state == 0` 시리즈를 "service@hostname"으로 넘긴다. 0건이면 GOOD 안심 배너.
+     */
+    fun agentDownBanner(offenders: List<String>): ThresholdBannerWidget {
+        val down = offenders.isNotEmpty()
+        return ThresholdBannerWidget(
+            level = if (down) Severity.CRIT else Severity.GOOD,
+            title = if (down) "다운된 에이전트 ${offenders.size}개" else "모든 에이전트 정상",
+            detail = offenders.takeIf { it.isNotEmpty() }?.let { names ->
+                val shown = names.take(BANNER_NAME_LIMIT)
+                val more = if (names.size > shown.size) " 외 ${names.size - shown.size}개" else ""
+                "다운: ${shown.joinToString(", ")}$more"
+            },
+            count = offenders.size,
+        )
     }
 
     private fun describeCondition(f: InventoryFilters): String? {

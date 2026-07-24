@@ -14,6 +14,7 @@ object PromQlBuilder {
             PromPattern.RATIO_TOPK -> buildRatioTopk(query, entry, rankFn, enrich)
             PromPattern.GAUGE_TOPK -> buildGaugeTopk(query, entry, rankFn, enrich)
             PromPattern.COUNTER_RATE_TOPK -> buildCounterRateTopk(query, entry, rankFn, enrich)
+            PromPattern.GAUGE_RAW -> "$rankFn(${query.topN}, ${entry.rawMetric})"
         }
     }
 
@@ -33,6 +34,7 @@ object PromQlBuilder {
                     "/ on(domain) max by(domain)($VCPUS_METRIC) * 100) $enrich"
             PromPattern.GAUGE_TOPK -> "${entry.rawMetric} $enrich"
             PromPattern.COUNTER_RATE_TOPK -> "sum by(domain)(rate(${entry.rawMetric}[${query.window}])) $enrich"
+            PromPattern.GAUGE_RAW -> entry.rawMetric
         }
     }
 

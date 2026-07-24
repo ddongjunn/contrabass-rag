@@ -204,13 +204,30 @@ class LlmMetricQueryExtractorTest {
     }
 
     @Test
-
-    fun `target PROJECT_USAGE면 ProjectUsageResolved`() {
+    fun `target IP_USAGE면 IpUsageResolved`() {
         val result = extractorWith(
-            """{"target":"PROJECT_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.92}"""
-        ).extract(ask("프로젝트별 사용률 보여줘"))
+            """{"target":"IP_USAGE","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.92}"""
+        ).extract(ask("네트워크 IP 얼마나 남았어?"))
 
-        assertIs<ResourceExtraction.ProjectUsageResolved>(result)
+        assertIs<ResourceExtraction.IpUsageResolved>(result)
+    }
+
+    @Test
+    fun `target CAPACITY면 CapacityResolved`() {
+        val result = extractorWith(
+            """{"target":"CAPACITY","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.92}"""
+        ).extract(ask("스토리지 용량 얼마나 남았어?"))
+
+        assertIs<ResourceExtraction.CapacityResolved>(result)
+    }
+
+    @Test
+    fun `target AGENT면 AgentResolved`() {
+        val result = extractorWith(
+            """{"target":"AGENT","clarificationNeeded":false,"clarificationMessage":"","metric":"INSTANCE_CPU","sort":"DESC","topN":5,"window":"5m","project":null,"confidence":0.92}"""
+        ).extract(ask("죽은 에이전트 있어?"))
+
+        assertIs<ResourceExtraction.AgentResolved>(result)
     }
 
     @Test

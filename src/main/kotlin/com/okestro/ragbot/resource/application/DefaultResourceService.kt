@@ -6,6 +6,7 @@ import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.PromQlBuilder
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import com.okestro.ragbot.resource.domain.TrendQuery
+import com.okestro.ragbot.resource.domain.UsageInput
 import java.time.Duration
 import java.time.Instant
 import org.slf4j.LoggerFactory
@@ -27,7 +28,9 @@ class DefaultResourceService(
             is ResourceExtraction.NeedsClarification -> ResourceService.Result(extraction.message, needsClarification = true)
             is ResourceExtraction.StatusResolved -> statusDonut()
             is ResourceExtraction.ThresholdResolved -> thresholdBanner()
-            is ResourceExtraction.ProjectUsageResolved -> projectUsageBar()
+            is ResourceExtraction.IpUsageResolved -> ipUsage()
+            is ResourceExtraction.CapacityResolved -> capacity()
+            is ResourceExtraction.AgentResolved -> agentHealth()
             is ResourceExtraction.TrendResolved -> metricLine(extraction.query)
             is ResourceExtraction.Resolved -> {
                 val query = extraction.query
@@ -133,33 +136,77 @@ class DefaultResourceService(
         return ResourceService.Result(ThresholdAnswerTemplate.render(widget, crit, offenders), widgets = listOf(widget))
     }
 
-    /**
-     * tenant별 vCPU 쿼터 사용률 → project_usage_bar.
-     *
-     * 무제한(max=-1)도 **계약대로 표시한다**(d.ts: `value: null` + "무제한", 프론트는 muted 100% 바).
-     * 실측 43개 중 16개가 무제한이라 거르면 이유 없이 3분의 1이 사라진다. 소스에서 안 거르고
-     * 빌더가 부호로 판별해 null 처리한다 — `used/max`는 max=-1일 때 음수(used>0) 또는 **-0.0**(used=0)이다.
-     *
-     * "프로젝트별 실사용률" 단일 소스는 없어서 쿼터 사용률로 재정의한 것이다(설계 정정).
-     */
-    private fun projectUsageBar(): ResourceService.Result {
-        val promql = "($PROJECT_USAGE_USED / $PROJECT_USAGE_MAX) * 100"
-        log.info("resource-project-usage promql=\"{}\"", promql)
-
+    /** IP_USAGE 트랙 — 네트워크별 IP 사용률(usage_bar). 실측 2026-07-24: 17개 네트워크. */
+    private fun ipUsage(): ResourceService.Result {
+        log.info("resource-ip-usage promql=\"{}\"", IP_USAGE_PROMQL)
         val sev = properties.resource.severity
-        val widget = WidgetBuilder.projectUsageBar(
-            prometheus.queryLabeled(promql),
-            metric = "vCPU",
-            unit = "%",
-            sev.warnPercent,
-            sev.critPercent,
-            topN = properties.resource.widgets.projectUsageTopN,
+        val inputs = prometheus.queryLabeled(IP_USAGE_PROMQL)
+            .mapNotNull { s -> s.labels["network_name"]?.let { UsageInput(it, s.value) } }
+        val widget = WidgetBuilder.usageBar(
+            "네트워크별 IP 사용률", "%", inputs, sev.warnPercent, sev.critPercent,
+            properties.resource.widgets.usageTopN,
         )
-        return ResourceService.Result(ProjectUsageAnswerTemplate.render(widget), widgets = listOf(widget))
+        return ResourceService.Result(UsageAnswerTemplate.render(widget), widgets = listOf(widget))
     }
 
+    /**
+     * CAPACITY 트랙 — 스토리지 용량(usage_bar). Ceph 클러스터(bytes) + cinder 백엔드 풀(GB)을
+     * **정규식 한 방**으로 받아 사용률·절대량을 계산한다(실측: 4시리즈).
+     */
+    private fun capacity(): ResourceService.Result {
+        log.info("resource-capacity promql=\"{}\"", CAPACITY_PROMQL)
+        val samples = prometheus.queryLabeled(CAPACITY_PROMQL)
+        val byName = { n: String -> samples.filter { it.labels["__name__"] == n } }
+
+        val inputs = buildList {
+            val cephTotal = byName("ceph_cluster_total_bytes").firstOrNull()?.value
+            val cephUsed = byName("ceph_cluster_total_used_bytes").firstOrNull()?.value
+            if (cephTotal != null && cephUsed != null && cephTotal > 0) {
+                val pct = cephUsed / cephTotal * 100
+                add(UsageInput("Ceph 클러스터", pct, "${tb(cephUsed)} / ${tb(cephTotal)} (${"%.1f".format(pct)}%)"))
+            }
+            byName("openstack_cinder_pool_capacity_total_gb").forEach { total ->
+                val backend = total.labels["volume_backend_name"] ?: return@forEach
+                val free = byName("openstack_cinder_pool_capacity_free_gb")
+                    .firstOrNull { it.labels["volume_backend_name"] == backend } ?: return@forEach
+                if (total.value <= 0) return@forEach
+                val usedGb = total.value - free.value
+                val pct = usedGb / total.value * 100
+                add(UsageInput(backend, pct, "${gb(usedGb)} / ${gb(total.value)} (${"%.1f".format(pct)}%)"))
+            }
+        }
+        val sev = properties.resource.severity
+        val widget = WidgetBuilder.usageBar(
+            "스토리지 용량", "%", inputs, sev.warnPercent, sev.critPercent,
+            properties.resource.widgets.usageTopN,
+        )
+        return ResourceService.Result(UsageAnswerTemplate.render(widget), widgets = listOf(widget))
+    }
+
+    /** AGENT 트랙 — 다운 에이전트 검사. `== 0`이라 결과 0건 = 전부 정상(실측: 44개 전부 up). */
+    private fun agentHealth(): ResourceService.Result {
+        log.info("resource-agent promql=\"{}\"", AGENT_DOWN_PROMQL)
+        val offenders = prometheus.queryLabeled(AGENT_DOWN_PROMQL)
+            .mapNotNull { s ->
+                val service = s.labels["service"] ?: return@mapNotNull null
+                "$service@${s.labels["hostname"] ?: "?"}"
+            }
+        val widget = WidgetBuilder.agentDownBanner(offenders)
+        return ResourceService.Result(AgentAnswerTemplate.render(widget), widgets = listOf(widget))
+    }
+
+    private fun tb(bytes: Double) = "%.1f TB".format(bytes / 1_099_511_627_776.0)
+    private fun gb(gbValue: Double) = if (gbValue >= 1024) "%.1f TB".format(gbValue / 1024) else "%.0f GB".format(gbValue)
+
     private companion object {
-        const val PROJECT_USAGE_USED = "openstack_nova_limits_vcpus_used"
-        const val PROJECT_USAGE_MAX = "openstack_nova_limits_vcpus_max"
+        const val IP_USAGE_PROMQL =
+            "(sum by(network_name)(openstack_neutron_network_ip_availabilities_used) " +
+                "/ sum by(network_name)(openstack_neutron_network_ip_availabilities_total)) * 100"
+
+        const val CAPACITY_PROMQL =
+            """{__name__=~"ceph_cluster_total_bytes|ceph_cluster_total_used_bytes|openstack_cinder_pool_capacity_(total|free)_gb"}"""
+
+        const val AGENT_DOWN_PROMQL =
+            """{__name__=~"openstack_(nova|neutron|cinder)_agent_state"} == 0"""
     }
 }

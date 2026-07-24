@@ -22,11 +22,14 @@ sealed class ResourceExtraction {
      */
     data object ThresholdResolved : ResourceExtraction()
 
-    /**
-     * PROJECT_USAGE 트랙 — tenant별 vCPU 쿼터 사용률 바(project_usage_bar).
-     * 여러 프로젝트의 한 자원을 비교하는 트랙이라 조건이 없다.
-     */
-    data object ProjectUsageResolved : ResourceExtraction()
+    /** IP_USAGE 트랙 — 네트워크별 IP 사용률(usage_bar). 쿼리 고정, 조건 없음. */
+    data object IpUsageResolved : ResourceExtraction()
+
+    /** CAPACITY 트랙 — 스토리지(Ceph 클러스터·cinder 백엔드) 용량 사용률(usage_bar). 조건 없음. */
+    data object CapacityResolved : ResourceExtraction()
+
+    /** AGENT 트랙 — 다운된 OpenStack 에이전트 검사(threshold_banner 재사용). 조건 없음. */
+    data object AgentResolved : ResourceExtraction()
 
     data class NeedsClarification(val message: String) : ResourceExtraction()
 }

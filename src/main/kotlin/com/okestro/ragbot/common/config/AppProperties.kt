@@ -96,9 +96,9 @@ data class AppProperties(
             val critPercent: Int = 85,
         )
 
-        /** 위젯 표시 상한. project_usage_bar는 테넌트 수만큼 바가 생겨 채팅창을 덮는다(실측 27개). */
+        /** 위젯 표시 상한. usage_bar는 항목 수만큼 바가 생겨 채팅창을 덮는다(실측 IP 네트워크 17개). */
         data class Widgets(
-            val projectUsageTopN: Int = 10,
+            val usageTopN: Int = 10,
         )
 
         data class Prometheus(

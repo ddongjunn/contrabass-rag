@@ -30,7 +30,7 @@ class ResourcePromptsWiringTest {
     private val metricKeys = MetricPattern.entries.map { it.name }
 
     /** 디스패치가 실제로 처리하는 target들(= 사용자가 도달 가능한 트랙). */
-    private val dispatchedTargets = listOf("METRIC", "INVENTORY", "STATUS", "THRESHOLD", "PROJECT_USAGE", "TREND")
+    private val dispatchedTargets = listOf("METRIC", "INVENTORY", "STATUS", "THRESHOLD", "TREND", "IP_USAGE", "CAPACITY", "AGENT")
 
     /** SYSTEM 프롬프트의 `=> {...}` few-shot 응답 JSON을 그대로 뽑는다. */
     private fun fewShotResponses(): List<String> =
@@ -45,7 +45,9 @@ class ResourcePromptsWiringTest {
         is ResourceExtraction.InventoryResolved -> "INVENTORY"
         is ResourceExtraction.StatusResolved -> "STATUS"
         is ResourceExtraction.ThresholdResolved -> "THRESHOLD"
-        is ResourceExtraction.ProjectUsageResolved -> "PROJECT_USAGE"
+        is ResourceExtraction.IpUsageResolved -> "IP_USAGE"
+        is ResourceExtraction.CapacityResolved -> "CAPACITY"
+        is ResourceExtraction.AgentResolved -> "AGENT"
         is ResourceExtraction.TrendResolved -> "TREND"
         is ResourceExtraction.NeedsClarification -> "CLARIFY"
     }
