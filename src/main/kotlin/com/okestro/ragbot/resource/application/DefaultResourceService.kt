@@ -4,6 +4,7 @@ import com.okestro.ragbot.chat.domain.ConversationMessage
 import com.okestro.ragbot.common.config.AppProperties
 import com.okestro.ragbot.resource.domain.MetricPattern
 import com.okestro.ragbot.resource.domain.PromQlBuilder
+import com.okestro.ragbot.resource.domain.QuotaInput
 import com.okestro.ragbot.resource.domain.ResourceExtraction
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -24,6 +25,14 @@ class DefaultResourceService(
             is ResourceExtraction.NeedsClarification -> ResourceService.Result(extraction.message, needsClarification = true)
             is ResourceExtraction.StatusResolved -> statusDonut()
             is ResourceExtraction.ThresholdResolved -> thresholdBanner()
+            is ResourceExtraction.QuotaResolved -> {
+                val project = extraction.project ?: contextProject
+                if (project == null) {
+                    ResourceService.Result("어느 프로젝트의 쿼터를 조회할까요?", needsClarification = true)
+                } else {
+                    quotaGauge(project)
+                }
+            }
             is ResourceExtraction.ProjectUsageResolved -> projectUsageBar()
             is ResourceExtraction.Resolved -> {
                 val query = extraction.query
@@ -110,6 +119,29 @@ class DefaultResourceService(
     }
 
     /**
+     * 쿼터 6개 메트릭(vCPU/메모리/디스크 × max/used)을 **정규식 한 방**으로 받는다.
+     * 메트릭당 1번씩 6번 쏠 이유가 없다(실측 확인: 1방에 6건).
+     *
+     * 라벨은 tenant(=프로젝트 이름, 조인 불필요) + tenant_id. 무제한은 max=-1로 실관측된다.
+     */
+    private fun quotaGauge(project: String): ResourceService.Result {
+        val promql = """{__name__=~"$QUOTA_METRIC_RE", tenant="${escapePromQlLabel(project)}"}"""
+        log.info("resource-quota project={} promql=\"{}\"", project, promql)
+
+        val byName = prometheus.queryLabeled(promql).associate { it.labels["__name__"] to it.value }
+        val sev = properties.resource.severity
+        val inputs = QUOTA_SPECS.mapNotNull { spec ->
+            val used = byName[spec.usedMetric] ?: return@mapNotNull null
+            val max = byName[spec.maxMetric] ?: return@mapNotNull null
+            // 메모리만 MB로 온다(실측 51200=50GB) — 그대로 두면 "25600 / 51200"이라 사람이 못 읽는다.
+            QuotaInput(spec.label, used / spec.divisor, if (max < 0) max else max / spec.divisor)
+        }
+
+        val widget = WidgetBuilder.quotaGauge(inputs, sev.warnPercent, sev.critPercent)
+        return ResourceService.Result(QuotaAnswerTemplate.render(widget, project), widgets = listOf(widget))
+    }
+
+    /**
      * tenant별 vCPU 쿼터 사용률 → project_usage_bar.
      *
      * 무제한(max=-1)도 **계약대로 표시한다**(d.ts: `value: null` + "무제한", 프론트는 muted 100% 바).
@@ -134,8 +166,30 @@ class DefaultResourceService(
         return ResourceService.Result(ProjectUsageAnswerTemplate.render(widget), widgets = listOf(widget))
     }
 
+    /**
+     * PromQL 라벨값 이스케이프. **project는 LLM이 사용자 질문에서 뽑은 자유 문자열**이라 그대로 넣으면
+     * 셀렉터를 닫고 다른 테넌트를 붙일 수 있다(리뷰에서 실증):
+     *   `a"} or {__name__=~"...", tenant="admin`  → 유효한 PromQL이 되어 admin의 쿼터가 렌더된다.
+     *
+     * `tenant=`는 정확 일치라 정규식 메타문자는 무해하고, 위험한 건 `"`와 `\` 둘뿐이다.
+     * 이스케이프하면 그런 이름의 테넌트를 찾다가 0건 → "쿼터 정보를 찾지 못했습니다" 경로로 안전하게 떨어진다.
+     */
+    private fun escapePromQlLabel(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"")
+
+    private data class QuotaSpec(val label: String, val usedMetric: String, val maxMetric: String, val divisor: Double)
+
     private companion object {
         const val PROJECT_USAGE_USED = "openstack_nova_limits_vcpus_used"
         const val PROJECT_USAGE_MAX = "openstack_nova_limits_vcpus_max"
+
+        const val QUOTA_METRIC_RE =
+            "openstack_nova_limits_(vcpus|memory)_(max|used)|openstack_cinder_limits_volume_(max|used)_gb"
+
+        val QUOTA_SPECS = listOf(
+            QuotaSpec("vCPU", "openstack_nova_limits_vcpus_used", "openstack_nova_limits_vcpus_max", 1.0),
+            QuotaSpec("메모리(GB)", "openstack_nova_limits_memory_used", "openstack_nova_limits_memory_max", 1024.0),
+            QuotaSpec("디스크(GB)", "openstack_cinder_limits_volume_used_gb", "openstack_cinder_limits_volume_max_gb", 1.0),
+        )
     }
 }

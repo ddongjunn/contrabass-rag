@@ -20,8 +20,16 @@ sealed class ResourceExtraction {
     data object ThresholdResolved : ResourceExtraction()
 
     /**
+     * QUOTA 트랙 — 특정 프로젝트의 쿼터 사용량(quota_gauge).
+     *
+     * project가 null이면(질문에 명시 안 됨) 서비스 계층이 호출부 컨텍스트(포털이 아는 현재
+     * 프로젝트)로 폴백을 시도한다 — 그래도 없으면 그때 되묻는다(DefaultResourceService).
+     */
+    data class QuotaResolved(val project: String?) : ResourceExtraction()
+
+    /**
      * PROJECT_USAGE 트랙 — tenant별 vCPU 쿼터 사용률 바(project_usage_bar).
-     * 여러 프로젝트의 한 자원을 비교하는 트랙이라 조건이 없다.
+     * quota_gauge가 "한 프로젝트의 여러 자원"이라면 이쪽은 "여러 프로젝트의 한 자원"이라 조건이 없다.
      */
     data object ProjectUsageResolved : ResourceExtraction()
 

@@ -2,6 +2,7 @@ import { h } from "./dom.js";
 import { icon } from "./icons.js";
 import { buildMetricRank } from "./widgets/metric-rank.js";
 import { buildInventoryCount } from "./widgets/inventory-count.js";
+import { buildQuotaGauge } from "./widgets/quota-gauge.js";
 import { buildProjectUsageBar } from "./widgets/project-usage-bar.js";
 import { buildStatusDonut } from "./widgets/status-donut.js";
 import { buildThresholdBanner } from "./widgets/threshold-banner.js";
@@ -9,6 +10,7 @@ import { buildThresholdBanner } from "./widgets/threshold-banner.js";
 const BUILDERS = {
   metric_rank: buildMetricRank,
   inventory_count: buildInventoryCount,
+  quota_gauge: buildQuotaGauge,
   project_usage_bar: buildProjectUsageBar,
   status_donut: buildStatusDonut,
   threshold_banner: buildThresholdBanner,

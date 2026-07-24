@@ -49,6 +49,7 @@ fun main() {
             // STATUS/THRESHOLD는 분류만 확인한다 — 실제 조회·위젯은 statusCli 또는 실 앱에서 본다.
             is ResourceExtraction.StatusResolved -> println("→ [추출] target=STATUS (상태 분포)")
             is ResourceExtraction.ThresholdResolved -> println("→ [추출] target=THRESHOLD (임계 초과)")
+            is ResourceExtraction.QuotaResolved -> println("→ [추출] target=QUOTA  project=${result.project}")
             is ResourceExtraction.ProjectUsageResolved -> println("→ [추출] target=PROJECT_USAGE (프로젝트별 사용률)")
             is ResourceExtraction.Resolved -> {
                 val q = result.query
