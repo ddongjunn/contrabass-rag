@@ -18,7 +18,7 @@ object FollowupBuilder {
         return buildList {
             add("${top.instanceName} ${alternateMetricLabel(query.metric)}는?")
             if (query.project == null && top.projectName != null) add("${top.projectName}만 보기")
-            if (query.metric != MetricPattern.INSTANCE_NETWORK_TX) add("네트워크 송신량 TopN")
+            if (query.metric != MetricPattern.INSTANCE_NETWORK_TX) add("네트워크 송신량 상위 5개")
         }.take(3)
     }
 

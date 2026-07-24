@@ -20,7 +20,7 @@
         ]
       }
     ],
-    "followups": ["web-prod-07 메모리는?", "네트워크 송신량 TopN", "data-platform 만 보기"]
+    "followups": ["web-prod-07 메모리는?", "네트워크 송신량 상위 5개", "data-platform 만 보기"]
   },
 
   "cpu_rank_with_spark": {
@@ -40,7 +40,7 @@
         ]
       }
     ],
-    "followups": ["web-prod-07 메모리는?", "네트워크 송신량 TopN"]
+    "followups": ["web-prod-07 메모리는?", "네트워크 송신량 상위 5개"]
   },
 
   "network_rank_no_severity": {
