@@ -622,8 +622,11 @@ textarea:focus-visible {
 .lg-name { font-weight: 600; color: var(--ink2); }
 .lg-val { font-weight: 800; color: var(--ink); margin-left: auto; font-variant-numeric: tabular-nums; }
 
-/* line chart (metric_line) */
-.lc-plot { display: block; width: 100%; height: auto; margin-top: 10px; }
+/* line chart (metric_line) — 높이 CSS 고정 + non-scaling-stroke: 임베드 폭이 넓어도 선 2px·글자 그대로 */
+.lc-wrap { display: flex; gap: 8px; margin-top: 10px; align-items: stretch; }
+.lc-yaxis { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end;
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.lc-plot { flex: 1; min-width: 0; height: 170px; display: block; }
 .lc-grid { stroke: var(--line); stroke-width: 1; }
 .lc-ln { stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .lc-ln.ln-1 { stroke: var(--chart-1); }
@@ -631,15 +634,7 @@ textarea:focus-visible {
 .lc-ln.ln-3 { stroke: var(--chart-3); }
 .lc-ln.ln-4 { stroke: var(--chart-4); }
 .lc-ln.ln-5 { stroke: var(--chart-5); }
-/* 끝점 마커 — 표면색 링 2px로 교차·겹침에서도 읽힌다 */
-.lc-dot { stroke: var(--panel); stroke-width: 2; }
-.lc-dot.ln-1 { fill: var(--chart-1); }
-.lc-dot.ln-2 { fill: var(--chart-2); }
-.lc-dot.ln-3 { fill: var(--chart-3); }
-.lc-dot.ln-4 { fill: var(--chart-4); }
-.lc-dot.ln-5 { fill: var(--chart-5); }
-.lc-y { fill: var(--muted); font-size: 9px; }
-.lc-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.lc-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
 .lg-dot.ln-1 { background: var(--chart-1); }
 .lg-dot.ln-2 { background: var(--chart-2); }
 .lg-dot.ln-3 { background: var(--chart-3); }

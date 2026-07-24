@@ -1,9 +1,9 @@
 import { h } from "../dom.js";
 
-// viewBox 좌표계 — CSS로 늘려도 비율 유지(preserveAspectRatio none은 폴리라인이 찌그러져 금지)
-const W = 260;
-const H = 120;
-const PAD = { top: 8, right: 12, bottom: 6, left: 34 };
+// 정규화 좌표계 + preserveAspectRatio=none + 높이는 CSS 고정(170px).
+// viewBox를 비율째 확대하면 넓은 임베드에서 선·글자·점이 통째로 비대해진다(실화면 확인 2026-07-24).
+// 선은 vector-effect=non-scaling-stroke로 어떤 폭에서도 2px, 텍스트는 전부 SVG 밖 HTML에 둔다.
+const VB = 1000;
 
 /** 축용 깔끔한 상한: 1/2/5 × 10^k 중 max 이상 최소값. max=0이면 1(0 나눗셈 방지). */
 function niceCeil(max) {
@@ -46,51 +46,42 @@ export function buildLineChart(w) {
   const yMax = niceCeil(allPoints.reduce((m, p) => Math.max(m, p.value), 0));
   const tSpan = t1 - t0 || 1;
 
-  const plotW = W - PAD.left - PAD.right;
-  const plotH = H - PAD.top - PAD.bottom;
-  const x = (ts) => PAD.left + ((ts - t0) / tSpan) * plotW;
+  const x = (ts) => ((ts - t0) / tSpan) * VB;
   // y 도메인은 항상 0부터 — 구간을 잘라 기울기를 부풀리지 않는다
-  const y = (v) => PAD.top + (1 - v / yMax) * plotH;
+  const y = (v) => (1 - v / yMax) * VB;
 
   const grid = [0, 0.5, 1].map((f) =>
     h("line", {
       ns: "svg", className: "lc-grid",
-      attrs: { x1: PAD.left, y1: (PAD.top + f * plotH).toFixed(1), x2: W - PAD.right, y2: (PAD.top + f * plotH).toFixed(1) },
+      attrs: { x1: 0, y1: (f * VB).toFixed(0), x2: VB, y2: (f * VB).toFixed(0), "vector-effect": "non-scaling-stroke" },
     }));
 
   const lines = w.series.map((s, i) => {
     const pts = s.points.map((p) => `${x(p.ts).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
     return h("polyline", {
       ns: "svg", className: `lc-ln ln-${i + 1}`,
-      attrs: { points: pts, fill: "none" },
+      // non-scaling-stroke: preserveAspectRatio=none의 비균등 확대에서도 선은 2px 유지
+      attrs: { points: pts, fill: "none", "vector-effect": "non-scaling-stroke" },
     });
   });
-
-  // 끝점 마커(r=4) — 라인 교차 지점에서도 읽히도록 CSS가 표면색 링(2px)을 입힌다
-  const dots = w.series.map((s, i) => {
-    const last = s.points[s.points.length - 1];
-    if (!last) return null;
-    return h("circle", {
-      ns: "svg", className: `lc-dot ln-${i + 1}`,
-      attrs: { cx: x(last.ts).toFixed(1), cy: y(last.value).toFixed(1), r: 4 },
-    });
-  }).filter(Boolean);
-
-  const yLabels = [
-    h("text", { ns: "svg", className: "lc-y lc-ymax", text: fmtTick(yMax, w.unit), attrs: { x: PAD.left - 5, y: PAD.top + 4, "text-anchor": "end" } }),
-    h("text", { ns: "svg", className: "lc-y", text: `0${w.unit === "%" ? "%" : ""}`, attrs: { x: PAD.left - 5, y: PAD.top + plotH + 4, "text-anchor": "end" } }),
-  ];
 
   const children = [
     h("div", { className: "eyebrow" }, [
       h("span", { text: w.title }),
       h("span", { text: `최근 ${w.range}` }),
     ]),
-    // 제목(eyebrow)·레전드가 텍스트 채널을 이미 담당한다 — 사용자 유래 문자열은 attrs에 넣지 않는다(XSS 계약)
-    h("svg", {
-      ns: "svg", className: "lc-plot",
-      attrs: { viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true" },
-    }, [...grid, ...yLabels, ...lines, ...dots]),
+    // y축 라벨은 HTML(스케일 안 탐) — 그리드 0/50/100% 지점과 정렬
+    h("div", { className: "lc-wrap" }, [
+      h("div", { className: "lc-yaxis" }, [
+        h("span", { className: "lc-y lc-ymax", text: fmtTick(yMax, w.unit) }),
+        h("span", { className: "lc-y", text: fmtTick(yMax / 2, w.unit) }),
+        h("span", { className: "lc-y", text: `0${w.unit === "%" ? "%" : ""}` }),
+      ]),
+      h("svg", {
+        ns: "svg", className: "lc-plot",
+        attrs: { viewBox: `0 0 ${VB} ${VB}`, preserveAspectRatio: "none", "aria-hidden": "true" },
+      }, [...grid, ...lines]),
+    ]),
     h("div", { className: "lc-x" }, [
       h("span", { text: Number.isFinite(t0) ? fmtTime(t0) : "" }),
       h("span", { text: Number.isFinite(t1) ? fmtTime(t1) : "" }),
@@ -109,6 +100,6 @@ export function buildLineChart(w) {
     })));
   }
 
-  children.push(h("div", { className: "wfoot" }, [h("span", { className: "prom", text: w.promql })]));
+  // promql 근거는 API 계약(w.promql)엔 유지하되 화면엔 표기하지 않는다(사용자 결정 2026-07-24).
   return h("div", { className: "card widget" }, children);
 }

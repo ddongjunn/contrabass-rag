@@ -42,6 +42,6 @@ export function buildMetricRank(w) {
       h("span", { text: `최근 ${w.window}` }),
     ]),
     ...rows,
-    h("div", { className: "wfoot" }, [h("span", { className: "prom", text: w.promql })]),
+    // promql 근거는 API 계약(w.promql)엔 유지하되 화면엔 표기하지 않는다(사용자 결정 2026-07-24).
   ]);
 }

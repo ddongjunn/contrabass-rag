@@ -57,11 +57,11 @@ test("metric_line header shows title and range", () => {
   assert.ok(texts.some((t) => t.includes("1h")));
 });
 
-test("metric_line y축 라벨은 깔끔한 최대값, promql은 footer에 보존", () => {
+test("metric_line y축 라벨은 깔끔한 최대값, promql은 화면에 노출하지 않는다", () => {
   const node = buildLineChart(cpu);
   const ymax = find(node, "lc-ymax");
   assert.equal(ymax.text, "20%");
-  assert.equal(find(node, "prom").text, cpu.promql);
+  assert.equal(find(node, "prom"), null);
 });
 
 test("metric_line 값이 모두 같아도(스팬 0) 좌표가 NaN이 되지 않는다", () => {
